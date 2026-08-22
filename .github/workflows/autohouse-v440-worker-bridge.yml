@@ -7,6 +7,12 @@ on:
     paths:
       - '.github/workflows/autohouse-v440-worker-bridge.yml'
       - 'autohouse/v360/**'
+  pull_request:
+    branches:
+      - RegenExcalibur-Webpage
+    paths:
+      - '.github/workflows/autohouse-v440-worker-bridge.yml'
+      - 'autohouse/v360/**'
   workflow_dispatch:
   schedule:
     - cron: '*/30 * * * *'
