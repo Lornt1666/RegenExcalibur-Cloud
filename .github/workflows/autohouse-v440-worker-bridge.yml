@@ -1,0 +1,165 @@
+name: AutoHouse v440 OIDC worker bridge
+
+on:
+  push:
+    branches:
+      - autohouse-v440-oidc-worker-bridge
+    paths:
+      - '.github/workflows/autohouse-v440-worker-bridge.yml'
+      - 'autohouse/v360/**'
+  workflow_dispatch:
+  schedule:
+    - cron: '*/30 * * * *'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: autohouse-v440-worker-bridge
+  cancel-in-progress: false
+
+env:
+  AUTOHOUSE_WORKER_URL: https://wubfqagfkkylqzwswdfs.supabase.co/functions/v1/autohouse-worker
+
+jobs:
+  poll-and-work:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v4
+
+      - name: Request short-lived GitHub OIDC identity
+        id: oidc
+        shell: bash
+        run: |
+          set -euo pipefail
+          TOKEN_JSON="$(curl --fail-with-body --silent --show-error \
+            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=autohouse-supabase")"
+          TOKEN="$(printf '%s' "$TOKEN_JSON" | jq -r '.value')"
+          test -n "$TOKEN" && test "$TOKEN" != "null"
+          echo "::add-mask::$TOKEN"
+          echo "token=$TOKEN" >> "$GITHUB_OUTPUT"
+
+      - name: Verify OIDC trust contract
+        shell: bash
+        env:
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer ${OIDC_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d '{"action":"selftest"}' \
+            "$AUTOHOUSE_WORKER_URL" | tee worker_selftest.json
+          jq -e '.authenticated == true and .worker.repository == "Lornt1666/RegenExcalibur-Cloud"' worker_selftest.json >/dev/null
+
+      - name: Lease one supported durable job
+        id: lease
+        shell: bash
+        env:
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer ${OIDC_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            -d '{"action":"lease","job_types":["shell_certification"]}' \
+            "$AUTOHOUSE_WORKER_URL" | tee lease_receipt.json
+          STATUS="$(jq -r '.status' lease_receipt.json)"
+          echo "status=$STATUS" >> "$GITHUB_OUTPUT"
+          if [ "$STATUS" = "LEASED" ]; then
+            echo "job_id=$(jq -r '.job.id' lease_receipt.json)" >> "$GITHUB_OUTPUT"
+          elif [ "$STATUS" != "NO_JOB" ] && [ "$STATUS" != "LEASE_RACE_LOST" ]; then
+            echo "Unexpected lease status: $STATUS" >&2
+            exit 1
+          fi
+
+      - name: Python 3.12 for leased shell job
+        if: steps.lease.outputs.status == 'LEASED'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: autohouse/v360/requirements-hashed.txt
+
+      - name: Mark leased job RUNNING
+        if: steps.lease.outputs.status == 'LEASED'
+        shell: bash
+        env:
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+          JOB_ID: ${{ steps.lease.outputs.job_id }}
+        run: |
+          set -euo pipefail
+          jq -n --arg id "$JOB_ID" '{action:"start",job_id:$id}' > start_request.json
+          curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer ${OIDC_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            --data-binary @start_request.json \
+            "$AUTOHOUSE_WORKER_URL" | tee start_receipt.json
+          jq -e '.status == "RUNNING"' start_receipt.json >/dev/null
+
+      - name: Execute certified OpenSees shell suite for leased job
+        if: steps.lease.outputs.status == 'LEASED'
+        id: solve
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install --require-hashes -r autohouse/v360/requirements-hashed.txt
+          cd autohouse/v360
+          python opensees_shell_worker.py > ../../raw_worker_result.json
+          python validate_receipt.py ../../raw_worker_result.json references.json
+          jq -e '.exit_status == "CONVERGED"' ../../raw_worker_result.json >/dev/null
+
+      - name: Post durable job result
+        if: steps.lease.outputs.status == 'LEASED' && always()
+        shell: bash
+        env:
+          OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+          JOB_ID: ${{ steps.lease.outputs.job_id }}
+          SOLVE_OUTCOME: ${{ steps.solve.outcome }}
+        run: |
+          set -euo pipefail
+          RUN_URI="https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          if [ "$SOLVE_OUTCOME" = "success" ] && [ -s raw_worker_result.json ]; then
+            RESULT_DIGEST="$(jq -r '.result_digest' raw_worker_result.json)"
+            jq -n \
+              --arg id "$JOB_ID" \
+              --arg digest "$RESULT_DIGEST" \
+              --arg uri "$RUN_URI" \
+              '{action:"finish",job_id:$id,outcome:"SUCCEEDED",result_digest:$digest,artifact_type:"shell_certification_receipt",artifact_uri:$uri}' > finish_request.json
+          else
+            jq -n \
+              --arg id "$JOB_ID" \
+              --arg message "OpenSees certification worker failed in GitHub run ${GITHUB_RUN_ID}" \
+              '{action:"finish",job_id:$id,outcome:"FAILED",error:{message:$message}}' > finish_request.json
+          fi
+          curl --fail-with-body --silent --show-error \
+            -H "Authorization: Bearer ${OIDC_TOKEN}" \
+            -H 'Content-Type: application/json' \
+            --data-binary @finish_request.json \
+            "$AUTOHOUSE_WORKER_URL" | tee finish_receipt.json
+          if [ "$SOLVE_OUTCOME" = "success" ]; then
+            jq -e '.status == "SUCCEEDED"' finish_receipt.json >/dev/null
+          else
+            jq -e '.status == "FAILED"' finish_receipt.json >/dev/null
+            exit 1
+          fi
+
+      - name: Upload worker bridge receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: autohouse-v440-worker-bridge-${{ github.run_id }}
+          retention-days: 90
+          if-no-files-found: warn
+          path: |
+            worker_selftest.json
+            lease_receipt.json
+            start_receipt.json
+            raw_worker_result.json
+            finish_receipt.json
