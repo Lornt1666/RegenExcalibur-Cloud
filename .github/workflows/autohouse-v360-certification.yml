@@ -1,0 +1,85 @@
+name: AutoHouse v360 nonlinear shell certification
+
+on:
+  push:
+    branches:
+      - autohouse-v360-shell-certification
+    paths:
+      - 'autohouse/v360/**'
+      - '.github/workflows/autohouse-v360-certification.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  certify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: autohouse/v360/requirements-hashed.txt
+
+      - name: Verify source syntax
+        run: |
+          python -m py_compile autohouse/v360/opensees_shell_worker.py
+          python -m py_compile autohouse/v360/validate_receipt.py
+
+      - name: Install hash-pinned OpenSees runtime
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --require-hashes -r autohouse/v360/requirements-hashed.txt
+          python - <<'PY'
+          import importlib.metadata as md, json, platform, sys, hashlib
+          payload = {
+              'python': sys.version,
+              'platform': platform.platform(),
+              'openseespy': md.version('openseespy'),
+              'openseespylinux': md.version('openseespylinux'),
+          }
+          payload['receipt_sha256'] = hashlib.sha256(json.dumps(payload,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+          open('autohouse/v360/install_receipt.json','w').write(json.dumps(payload,indent=2,sort_keys=True))
+          print(json.dumps(payload,indent=2,sort_keys=True))
+          PY
+
+      - name: Execute six-class OpenSees certification suite
+        working-directory: autohouse/v360
+        run: |
+          python opensees_shell_worker.py > raw_receipt.json
+          python -m json.tool raw_receipt.json >/dev/null
+
+      - name: Evaluate numerical promotion gate
+        id: validate
+        continue-on-error: true
+        working-directory: autohouse/v360
+        run: python validate_receipt.py raw_receipt.json references.json
+
+      - name: Upload immutable certification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: autohouse-v360-certification-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 90
+          path: |
+            autohouse/v360/raw_receipt.json
+            autohouse/v360/promotion_receipt.json
+            autohouse/v360/install_receipt.json
+            autohouse/v360/references.json
+            autohouse/v360/requirements-hashed.txt
+
+      - name: Enforce promotion gate
+        if: always()
+        run: |
+          if [ '${{ steps.validate.outcome }}' != 'success' ]; then
+            echo 'AutoHouse v360 certification blocked by numerical promotion gate.'
+            exit 1
+          fi
+          echo 'AutoHouse v360 certification accepted as CROSS_VALIDATED_REFERENCE; professional review remains required.'
