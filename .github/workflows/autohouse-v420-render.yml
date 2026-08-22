@@ -1,0 +1,60 @@
+name: AutoHouse v420 geometry-faithful render certification
+
+on:
+  push:
+    branches:
+      - autohouse-v420-render-worker
+    paths:
+      - 'autohouse/v420/**'
+      - '.github/workflows/autohouse-v420-render.yml'
+  pull_request:
+    branches:
+      - RegenExcalibur-Webpage
+    paths:
+      - 'autohouse/v420/**'
+      - '.github/workflows/autohouse-v420-render.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact head
+        uses: actions/checkout@v4
+
+      - name: Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify renderer source syntax
+        run: |
+          python -m py_compile autohouse/v420/render_worker.py
+          python -m py_compile autohouse/v420/verify_render.py
+
+      - name: Render canonical geometry
+        run: |
+          rm -rf autohouse/v420/render_out
+          python autohouse/v420/render_worker.py autohouse/v420/canonical_model.json autohouse/v420/render_out
+
+      - name: Verify geometry and immutable image receipts
+        run: |
+          python autohouse/v420/verify_render.py autohouse/v420/canonical_model.json autohouse/v420/render_out | tee autohouse/v420/render_out/verification_receipt.json
+
+      - name: Upload geometry-faithful render evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: autohouse-v420-render-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 90
+          path: |
+            autohouse/v420/canonical_model.json
+            autohouse/v420/render_out/render_manifest.json
+            autohouse/v420/render_out/verification_receipt.json
+            autohouse/v420/render_out/render_perspective.png
+            autohouse/v420/render_out/render_front.png
+            autohouse/v420/render_out/render_rear.png
