@@ -1,0 +1,17 @@
+{
+  "schema": "AUTOHOUSE_V450_RESPONSIBILITY_CONTRACT",
+  "document_control": {
+    "licensing_documentation_accountable_party": "HOMEBUILDER",
+    "master_document_control_accountable_party": "HOMEBUILDER",
+    "digital_document_coordination_responsible_system": "REGENEXCALIBUR_AUTOHOUSE"
+  },
+  "non_transferable": {
+    "owner_statutory_safety_codes_responsibility": "OWNER",
+    "professional_authentication_and_field_review": "LICENSED_PROFESSIONAL_WITHIN_SCOPE",
+    "legal_land_survey_authority": "ALBERTA_LAND_SURVEYOR",
+    "trade_restricted_work_and_permits": "QUALIFIED_OR_AUTHORIZED_TRADE_PARTY",
+    "permit_variance_inspection_occupancy_authority": "AHJ_OR_AUTHORIZED_SCO"
+  },
+  "release_law": "RegenExcalibur may validate and classify feasibility; it may not create an AHJ authorization, professional authentication, legal survey authority, trade authorization or statutory compliance receipt.",
+  "truth_boundary": "SCHEMATIC — NOT FOR CONSTRUCTION — UNSEALED — PROFESSIONAL / AHJ REVIEW REQUIRED."
+}
