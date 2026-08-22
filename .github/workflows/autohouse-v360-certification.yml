@@ -7,6 +7,12 @@ on:
     paths:
       - 'autohouse/v360/**'
       - '.github/workflows/autohouse-v360-certification.yml'
+  pull_request:
+    branches:
+      - RegenExcalibur-Webpage
+    paths:
+      - 'autohouse/v360/**'
+      - '.github/workflows/autohouse-v360-certification.yml'
   workflow_dispatch:
 
 permissions:
