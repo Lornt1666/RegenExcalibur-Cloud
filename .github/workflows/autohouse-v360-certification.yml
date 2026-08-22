@@ -36,6 +36,7 @@ jobs:
       - name: Verify source syntax
         run: |
           python -m py_compile autohouse/v360/opensees_shell_worker.py
+          python -m py_compile autohouse/v360/run_certification.py
           python -m py_compile autohouse/v360/validate_receipt.py
 
       - name: Install hash-pinned OpenSees runtime
@@ -58,7 +59,7 @@ jobs:
       - name: Execute six-class OpenSees certification suite
         working-directory: autohouse/v360
         run: |
-          python opensees_shell_worker.py > raw_receipt.json
+          python run_certification.py > raw_receipt.json
           python -m json.tool raw_receipt.json >/dev/null
 
       - name: Evaluate numerical promotion gate
@@ -80,6 +81,7 @@ jobs:
             autohouse/v360/install_receipt.json
             autohouse/v360/references.json
             autohouse/v360/requirements-hashed.txt
+            autohouse/v360/run_certification.py
 
       - name: Enforce promotion gate
         if: always()
