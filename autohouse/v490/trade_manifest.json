@@ -1,0 +1,224 @@
+{
+  "schema": "AUTOHOUSE_V490_TRADE_MANIFEST",
+  "primary_directive": "Construction Documents (CDs) — a fully coordinated, architected, engineered, permit-ready drawing set covering every trade.",
+  "release_states": [
+    "BRIEF_INGESTED",
+    "SITE_AND_AUTHORITY_BOUND",
+    "PROGRAM_RESOLVED",
+    "COORDINATED_MODEL_READY",
+    "ENGINEERING_ANALYSIS_COMPLETE",
+    "TRADE_COORDINATION_COMPLETE",
+    "CD_SET_COMPLETE",
+    "INTERNAL_QAQC_PASS",
+    "PROFESSIONAL_AUTHENTICATION_READY",
+    "EXTERNAL_AUTHENTICATION_BOUND",
+    "PERMIT_SUBMISSION_READY",
+    "AHJ_RESPONSE_TRACKING"
+  ],
+  "truth_states": [
+    "RESOLVED",
+    "DEFAULTED",
+    "PROVISIONAL",
+    "UNRESOLVED",
+    "DEFERRED",
+    "NOT_APPLICABLE",
+    "CONTRADICTORY",
+    "PROFESSIONAL_HOLD",
+    "AUTHORITY_HOLD",
+    "MANUFACTURER_HOLD",
+    "TESTING_HOLD"
+  ],
+  "disciplines": {
+    "G": {
+      "name": "General / Code / Authority",
+      "sheets": [
+        "G000 Cover / project data / professional responsibility",
+        "G001 Sheet index / symbols / abbreviations",
+        "G002 Code analysis and design criteria",
+        "G003 Life safety / egress / spatial separation matrix",
+        "G004 Energy / envelope compliance path",
+        "G005 Deferred design / submittal / unresolved register"
+      ]
+    },
+    "C": {
+      "name": "Civil / Site",
+      "sheets": [
+        "C100 Site plan / legal and survey basis",
+        "C101 Grading / drainage / finished floor elevations",
+        "C102 Utility servicing",
+        "C103 Storm / sanitary / water service coordination",
+        "C500 Civil details"
+      ]
+    },
+    "A": {
+      "name": "Architecture",
+      "sheets": [
+        "A100 Foundation coordination plan",
+        "A101 Main floor plan",
+        "A102 Upper floor plan",
+        "A103 Additional floor / basement plan as applicable",
+        "A120 Roof plan",
+        "A200 Exterior elevations",
+        "A300 Building sections",
+        "A310 Wall sections",
+        "A400 Enlarged plans / stairs / accessibility",
+        "A500 Construction details",
+        "A600 Door / window / room / finish schedules"
+      ]
+    },
+    "S": {
+      "name": "Structural",
+      "sheets": [
+        "S000 Structural design criteria / loading",
+        "S100 Foundation / footing / slab plan",
+        "S101 Floor framing",
+        "S102 Upper floor framing",
+        "S103 Roof framing",
+        "S110 Lateral / braced wall / shear plan",
+        "S200 Foundation details",
+        "S300 Framing / beam / post / bearing details",
+        "S400 Connection / anchorage / hold-down details",
+        "S500 Structural schedules"
+      ],
+      "required_analyses": [
+        "dead/live/snow/wind/seismic design basis",
+        "gravity load path",
+        "lateral load path",
+        "beam/column/post checks",
+        "foundation bearing and settlement basis",
+        "footing/slab checks",
+        "header/lintel checks",
+        "tall wall checks",
+        "diaphragm/braced wall/shear checks",
+        "connection/anchor/hold-down demand",
+        "deflection/serviceability",
+        "penetration/opening coordination"
+      ]
+    },
+    "GTE": {
+      "name": "Geotechnical Dependency",
+      "sheets": ["GTE001 Geotechnical design-input register / holds"],
+      "required_inputs": [
+        "allowable bearing / soil classification",
+        "frost basis",
+        "groundwater",
+        "fill/compaction",
+        "slope/retaining constraints"
+      ]
+    },
+    "EN": {
+      "name": "Envelope / Energy / Building Science",
+      "sheets": [
+        "EN100 Envelope assemblies",
+        "EN101 Air/vapour/water control continuity",
+        "EN102 Thermal bridge / opening interface details",
+        "EN200 Energy compliance calculations / schedules"
+      ]
+    },
+    "M": {
+      "name": "Mechanical / HVAC",
+      "sheets": [
+        "M000 Mechanical design criteria / calculations",
+        "M100 HVAC floor plans",
+        "M101 Ventilation / exhaust plans",
+        "M200 Duct / hydronic schematics",
+        "M300 Mechanical room",
+        "M500 Equipment / air-device schedules and details"
+      ],
+      "required_analyses": [
+        "heat loss / heat gain",
+        "ventilation / exhaust",
+        "duct sizing / pressure basis",
+        "equipment capacity and clearances",
+        "controls",
+        "commissioning requirements"
+      ]
+    },
+    "P": {
+      "name": "Plumbing",
+      "sheets": [
+        "P000 Plumbing design criteria",
+        "P100 Water distribution",
+        "P101 DWV plans",
+        "P200 Risers / isometrics",
+        "P500 Fixture / equipment schedules and details"
+      ],
+      "required_analyses": [
+        "fixture-unit basis",
+        "water sizing / developed length",
+        "drainage sizing",
+        "vent sizing",
+        "hot-water demand",
+        "service-entry / backflow dependencies"
+      ]
+    },
+    "GAS": {
+      "name": "Gas / Fuel",
+      "sheets": [
+        "GAS000 Connected-load / sizing basis",
+        "GAS100 Gas distribution plan / riser",
+        "GAS500 Appliance / venting / regulator details"
+      ]
+    },
+    "E": {
+      "name": "Electrical",
+      "sheets": [
+        "E000 Electrical design criteria / load calculation",
+        "E100 Lighting / switching",
+        "E101 Power / receptacles",
+        "E102 Life-safety electrical / smoke / CO",
+        "E200 Single-line / service / grounding",
+        "E300 Panel schedules",
+        "E500 Electrical details"
+      ]
+    },
+    "FP": {
+      "name": "Fire / Life Safety",
+      "sheets": [
+        "FP100 Fire separations / rated assemblies",
+        "FP101 Penetration / firestopping matrix",
+        "FP102 Alarm / detection / suppression coordination as applicable"
+      ]
+    },
+    "DD": {
+      "name": "Delegated / Manufactured Engineering",
+      "sheets": [
+        "DD001 Delegated-design responsibility matrix",
+        "DD002 Truss / engineered wood / proprietary component register",
+        "DD003 Shop drawing / manufacturer evidence register"
+      ]
+    },
+    "SP": {
+      "name": "Specifications / Schedules / QAQC",
+      "sheets": [
+        "SP001 Specification index",
+        "SP002 Product / submittal requirements",
+        "SP003 Testing / inspection / commissioning requirements",
+        "SP004 Calculation and model receipt index"
+      ]
+    }
+  },
+  "professional_authentication_gate": {
+    "software_max_state": "PROFESSIONAL_AUTHENTICATION_READY",
+    "permit_submission_requires": [
+      "complete coordinated drawing set",
+      "complete calculation set for applicable professional disciplines",
+      "project-specific code and AHJ matrix",
+      "current survey/site evidence where required",
+      "geotechnical evidence or explicit accepted design basis where required",
+      "delegated/manufacturer engineering bound where required",
+      "required licensed-professional authentication",
+      "required permit-holder/Responsible Member validation",
+      "required professional schedules",
+      "AHJ submission prerequisites"
+    ],
+    "prohibited_software_actions": [
+      "invent professional credentials",
+      "generate or apply an APEGA stamp as if licensed",
+      "forge physical or digital signature",
+      "apply an APEGA digital signature",
+      "claim municipal/AHJ approval",
+      "claim permit issuance"
+    ]
+  }
+}
