@@ -4,7 +4,7 @@
 
 The current evidence-backed acceptance snapshot is in [ACCEPTANCE_MATRIX.md](ACCEPTANCE_MATRIX.md).
 
-This branch contains **non-dispatching policy primitives**. It is not a deployed gateway and does not yet provide an authenticated HTTP API, mobile UI, production-grade shared audit/idempotency store, identity provider, provider execution, or application submission.
+This branch now includes a **non-dispatching WSGI intake API with injected authentication**, but no production identity verifier, deployment, mobile UI, shared audit/idempotency store, provider execution, or application submission. The API is not production-ready until the real identity verifier and shared persistence are integrated and tested.
 
 The contract is intended to bind a gateway request to an existing AIGC TaskContract through `aigc_contract_ref`. The existing AIGC contract and governance authority remain authoritative; this envelope does not replace them.
 
@@ -22,10 +22,12 @@ The contract is intended to bind a gateway request to an existing AIGC TaskContr
 - `antigravity_handoff.py`: workspace-bound user-assisted task handoff; no desktop, SDK, CLI, or managed-agent invocation.
 - `aigc_contract_bridge.py`: defense-in-depth validation of the existing AIGC runtime v0.18 contract shape and a server-supplied operation allowlist; the authoritative AIGC validator remains upstream.
 - `ledger.py`: SQLite intake/audit ledger with identity-scoped idempotency and owner-scoped reads. It is a single-node development/test primitive, not a production multi-instance database.
+- `http_api.py`: dependency-injected WSGI task-intake and owner-scoped read API. It fails closed without a supplied trusted authenticator and never dispatches external work.
 - `test_job_agent.py`: regression tests for URL hygiene, missing qualifications, unknown eligibility facts, deduplication, and non-fabricated application drafts.
 - `test_cloud_shell_handoff.py` and `test_antigravity_handoff.py`: regression tests for typed allowlists, explicit scope, and honest user-assisted status.
 - `test_aigc_contract_bridge.py`: regression tests for contract reference binding, expiry, resource budget, and allowed actions.
 - `test_ledger.py`: regression tests for atomic intake/audit, idempotent replay, conflict denial, durable denial records, and owner-scoped reads.
+- `test_http_api.py`: regression tests for authenticated intake, idempotent replay, malformed/unauthorized denial, audit-store failure, and cross-user read isolation.
 
 ## Critical integration requirements
 
