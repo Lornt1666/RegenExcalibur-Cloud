@@ -58,12 +58,19 @@ class GovernedGatewayWSGI:
             raise AuthenticationError("authenticator returned no trusted subject")
         return identity
 
-    def _audit_denial(self, actor: str, reason: str, task_id: str | None = None) -> None:
+    def _audit_denial(self, actor: str, reason: str, task_id: str | None = None) -> bool:
         try:
             self.ledger.record_denial(actor=actor, action="TASK_INTAKE", reason_code=reason, task_id=task_id)
+            return True
         except Exception:
-            # Do not falsely report durable audit success. The response remains denied.
-            pass
+            return False
+
+    def _deny(self, start_response, actor: str, reason: str, status: str,
+              payload: Mapping[str, Any], task_id: str | None = None):
+        if not self._audit_denial(actor, reason, task_id):
+            return self._response(start_response, "503 Service Unavailable",
+                                  {"error": "audit_unavailable", "dispatch_performed": False})
+        return self._response(start_response, status, payload)
 
     def __call__(self, environ, start_response):
         method = str(environ.get("REQUEST_METHOD", "GET")).upper()
@@ -74,8 +81,8 @@ class GovernedGatewayWSGI:
             try:
                 identity = self._identity(environ)
             except AuthenticationError:
-                self._audit_denial("unauthenticated", "AUTHENTICATION_FAILED")
-                return self._response(start_response, "401 Unauthorized", {"error": "authentication_required"})
+                return self._deny(start_response, "unauthenticated", "AUTHENTICATION_FAILED",
+                                  "401 Unauthorized", {"error": "authentication_required"})
             subject = identity["subject"]
             try:
                 length = int(environ.get("CONTENT_LENGTH") or "0")
@@ -91,23 +98,23 @@ class GovernedGatewayWSGI:
                     raise ContractError("new intake must start in REQUESTED state")
                 validate_contract(contract)
             except (ValueError, UnicodeDecodeError, json.JSONDecodeError, ContractError, KeyError):
-                self._audit_denial(subject, "INVALID_OR_MALFORMED_CONTRACT",
-                                   contract.get("task_id") if "contract" in locals() and isinstance(contract, Mapping) and isinstance(contract.get("task_id"), str) else None)
-                return self._response(start_response, "400 Bad Request", {"error": "invalid_task_contract"})
+                return self._deny(start_response, subject, "INVALID_OR_MALFORMED_CONTRACT",
+                                  "400 Bad Request", {"error": "invalid_task_contract"},
+                                  contract.get("task_id") if "contract" in locals() and isinstance(contract, Mapping) and isinstance(contract.get("task_id"), str) else None)
             try:
                 authorize_task(contract, identity, self.approval_lookup)
             except ContractError:
-                self._audit_denial(subject, "AUTHORIZATION_DENIED",
-                                   contract.get("task_id") if isinstance(contract.get("task_id"), str) else None)
-                return self._response(start_response, "403 Forbidden", {"error": "task_not_authorized"})
+                return self._deny(start_response, subject, "AUTHORIZATION_DENIED",
+                                  "403 Forbidden", {"error": "task_not_authorized"},
+                                  contract.get("task_id") if isinstance(contract.get("task_id"), str) else None)
             try:
                 stored = self.ledger.create_task(contract, subject)
             except IdempotencyConflict:
                 return self._response(start_response, "409 Conflict", {"error": "idempotency_conflict"})
             except (ValueError, KeyError, TypeError):
-                self._audit_denial(subject, "PERSISTENCE_REJECTED",
-                                   contract.get("task_id") if isinstance(contract.get("task_id"), str) else None)
-                return self._response(start_response, "400 Bad Request", {"error": "task_not_accepted"})
+                return self._deny(start_response, subject, "PERSISTENCE_REJECTED",
+                                  "400 Bad Request", {"error": "task_not_accepted"},
+                                  contract.get("task_id") if isinstance(contract.get("task_id"), str) else None)
             return self._response(start_response, "200 OK" if stored["replayed"] else "201 Created", {
                 "task_id": stored["task_id"],
                 "state": stored["state"],
