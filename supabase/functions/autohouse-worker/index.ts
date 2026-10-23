@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { createRemoteJWKSet, jwtVerify } from "npm:jose@6.1.0";
-import { artifactMatchesExisting, expiredLeaseDisposition, isFinishableState } from "./lifecycle.ts";
+import { artifactMatchesExisting, expiredLeaseDisposition, isFinishableState, workerLeaseIdentity } from "./lifecycle.ts";
 
 const TRUTH = "SCHEMATIC — NOT FOR CONSTRUCTION — UNSEALED — PROFESSIONAL / AHJ REVIEW REQUIRED.";
 const VERSION = "v441";
@@ -29,14 +29,14 @@ async function githubIdentity(req: Request) {
   if (!auth.startsWith("Bearer ")) throw new Error("missing GitHub OIDC bearer token");
   const { payload, protectedHeader } = await jwtVerify(auth.slice(7), JWKS, { issuer: ISSUER, audience: AUDIENCE });
   const repository=String(payload.repository??""), repositoryId=String(payload.repository_id??""), ownerId=String(payload.repository_owner_id??"");
-  const ref=String(payload.ref??""), workflowRef=String(payload.workflow_ref??""), runId=String(payload.run_id??""), sha=String(payload.sha??"");
+  const ref=String(payload.ref??""), workflowRef=String(payload.workflow_ref??""), runId=String(payload.run_id??""), runAttempt=String(payload.run_attempt??""), sha=String(payload.sha??"");
   if (repository!==REPOSITORY) throw new Error("untrusted repository");
   if (repositoryId!==REPOSITORY_ID) throw new Error("untrusted repository id");
   if (ownerId!==OWNER_ID) throw new Error("untrusted repository owner id");
   if (ref!==PRODUCTION_REF) throw new Error(`untrusted production ref ${ref}`);
   if (!workflowRef.startsWith(`${REPOSITORY}/${WORKFLOW_FILE}@${PRODUCTION_REF}`)) throw new Error("untrusted workflow_ref");
-  if (!runId || !sha) throw new Error("missing immutable workflow identity");
-  return {repository,repository_id:repositoryId,repository_owner_id:ownerId,ref,workflow_ref:workflowRef,run_id:runId,run_attempt:String(payload.run_attempt??""),actor:String(payload.actor??""),actor_id:String(payload.actor_id??""),sha,event_name:String(payload.event_name??""),runner_environment:String(payload.runner_environment??""),jti:String(payload.jti??""),kid:String(protectedHeader.kid??"")};
+  if (!runId || !sha || !/^\d+$/.test(runAttempt)) throw new Error("missing immutable workflow identity");
+  return {repository,repository_id:repositoryId,repository_owner_id:ownerId,ref,workflow_ref:workflowRef,run_id:runId,run_attempt:runAttempt,actor:String(payload.actor??""),actor_id:String(payload.actor_id??""),sha,event_name:String(payload.event_name??""),runner_environment:String(payload.runner_environment??""),jti:String(payload.jti??""),kid:String(protectedHeader.kid??"")};
 }
 async function recoverExpired(admin: ReturnType<typeof adminClient>) {
   const now=new Date().toISOString();
@@ -63,7 +63,7 @@ async function lease(admin: ReturnType<typeof adminClient>, ident: Awaited<Retur
   if(selectError) throw new Error(selectError.message); const job=candidates?.[0];
   if(!job) return {status:"NO_JOB",authenticated:true,worker:ident,supported_job_types:supported};
   const now=new Date(), expires=new Date(now.getTime()+15*60*1000);
-  const {data:leased,error:leaseError}=await admin.from("autohouse_jobs").update({state:"LEASED",attempt:Number(job.attempt??0)+1,leased_at:now.toISOString(),lease_expires_at:expires.toISOString(),worker_run_id:ident.run_id,worker_repository:ident.repository,worker_sha:ident.sha,updated_at:now.toISOString()}).eq("id",job.id).eq("state","QUEUED").select("id,owner_id,project_id,project_revision_digest,job_type,input_digest,idempotency_key,state,attempt,leased_at,lease_expires_at,worker_run_id,worker_repository,worker_sha").maybeSingle();
+  const {data:leased,error:leaseError}=await admin.from("autohouse_jobs").update({state:"LEASED",attempt:Number(job.attempt??0)+1,leased_at:now.toISOString(),lease_expires_at:expires.toISOString(),worker_run_id:workerLeaseIdentity(ident.run_id,ident.run_attempt),worker_repository:ident.repository,worker_sha:ident.sha,updated_at:now.toISOString()}).eq("id",job.id).eq("state","QUEUED").select("id,owner_id,project_id,project_revision_digest,job_type,input_digest,idempotency_key,state,attempt,leased_at,lease_expires_at,worker_run_id,worker_repository,worker_sha").maybeSingle();
   if(leaseError) throw new Error(leaseError.message); if(!leased) return {status:"LEASE_RACE_LOST",authenticated:true,worker:ident};
   let revision_payload:unknown=null;
   if(leased.project_id){const {data:rev,error:revError}=await admin.from("autohouse_revisions").select("payload").eq("project_id",leased.project_id).eq("revision_digest",leased.project_revision_digest).maybeSingle();if(revError)throw new Error(revError.message);revision_payload=rev?.payload??null;}
@@ -72,13 +72,15 @@ async function lease(admin: ReturnType<typeof adminClient>, ident: Awaited<Retur
 }
 async function startJob(admin: ReturnType<typeof adminClient>, ident: Awaited<ReturnType<typeof githubIdentity>>, body: Record<string,unknown>) {
   const id=String(body.job_id??"");if(!id)throw new Error("missing job_id");
-  const {data,error}=await admin.from("autohouse_jobs").update({state:"RUNNING",updated_at:new Date().toISOString()}).eq("id",id).eq("state","LEASED").eq("worker_run_id",ident.run_id).eq("worker_repository",ident.repository).select("id,state,attempt,worker_run_id").maybeSingle();
+  const now=new Date().toISOString();
+  const {data,error}=await admin.from("autohouse_jobs").update({state:"RUNNING",updated_at:now}).eq("id",id).eq("state","LEASED").eq("worker_run_id",workerLeaseIdentity(ident.run_id,ident.run_attempt)).eq("worker_repository",ident.repository).eq("worker_sha",ident.sha).gt("lease_expires_at",now).select("id,state,attempt,worker_run_id").maybeSingle();
   if(error)throw new Error(error.message);if(!data)throw new Error("job lease ownership mismatch");return {status:"RUNNING",job:data};
 }
 async function finishJob(admin: ReturnType<typeof adminClient>, ident: Awaited<ReturnType<typeof githubIdentity>>, body: Record<string,unknown>) {
   const id=String(body.job_id??""),outcome=String(body.outcome??"");if(!id)throw new Error("missing job_id");if(!["SUCCEEDED","FAILED"].includes(outcome))throw new Error("invalid outcome");
-  const {data:current,error:currentError}=await admin.from("autohouse_jobs").select("id,owner_id,project_id,project_revision_digest,state,worker_run_id,worker_repository").eq("id",id).maybeSingle();
-  if(currentError)throw new Error(currentError.message);if(!current)throw new Error("job not found");if(current.worker_run_id!==ident.run_id||current.worker_repository!==ident.repository)throw new Error("job lease ownership mismatch");if(!isFinishableState(current.state))throw new Error(`job is not finishable from state ${current.state}`);
+  const now=new Date();
+  const {data:current,error:currentError}=await admin.from("autohouse_jobs").select("id,owner_id,project_id,project_revision_digest,state,worker_run_id,worker_repository,worker_sha,lease_expires_at").eq("id",id).maybeSingle();
+  if(currentError)throw new Error(currentError.message);if(!current)throw new Error("job not found");if(current.worker_run_id!==workerLeaseIdentity(ident.run_id,ident.run_attempt)||current.worker_repository!==ident.repository||current.worker_sha!==ident.sha)throw new Error("job lease ownership mismatch");if(!isFinishableState(current.state))throw new Error(`job is not finishable from state ${current.state}`);if(!current.lease_expires_at||new Date(current.lease_expires_at).getTime()<=now.getTime())throw new Error("worker lease expired; reconcile the attempt before completion");
   const resultDigest=typeof body.result_digest==="string"?body.result_digest:null;if(outcome==="SUCCEEDED"&&!resultDigest)throw new Error("successful job requires result_digest");
   // Stage the artifact before the terminal SUCCEEDED transition. If the job update
   // fails, a retry can reconcile the same owner/digest/job tuple idempotently.
@@ -91,11 +93,11 @@ async function finishJob(admin: ReturnType<typeof adminClient>, ident: Awaited<R
     if(existing){
       if(!artifactMatchesExisting(existing,expected))throw new Error("artifact digest already exists with mismatched job or revision binding");
     }else{
-      const {error:artifactError}=await admin.from("autohouse_artifacts").insert({owner_id:current.owner_id,project_id:current.project_id,job_id:current.id,revision_digest:current.project_revision_digest,artifact_type:artifactType,artifact_digest:resultDigest,uri,metadata:{worker_repository:ident.repository,worker_run_id:ident.run_id,worker_sha:ident.sha,workflow_ref:ident.workflow_ref,identity_verified_by:"GitHub OIDC",content_digest_supplied_by_worker:true}});
+      const {error:artifactError}=await admin.from("autohouse_artifacts").insert({owner_id:current.owner_id,project_id:current.project_id,job_id:current.id,revision_digest:current.project_revision_digest,artifact_type:artifactType,artifact_digest:resultDigest,uri,metadata:{worker_repository:ident.repository,worker_run_id:ident.run_id,worker_run_attempt:ident.run_attempt,worker_lease_id:workerLeaseIdentity(ident.run_id,ident.run_attempt),worker_sha:ident.sha,workflow_ref:ident.workflow_ref,identity_verified_by:"GitHub OIDC",content_digest_supplied_by_worker:true}});
       if(artifactError)throw new Error(`artifact ledger insert failed; job remains nonterminal: ${artifactError.message}`);
     }
   }
-  const {data:updated,error:updateError}=await admin.from("autohouse_jobs").update({state:outcome,result_digest:resultDigest,error:outcome==="FAILED"?(body.error??{message:"worker failure"}):null,lease_expires_at:null,updated_at:new Date().toISOString()}).eq("id",id).eq("worker_run_id",ident.run_id).in("state",["LEASED","RUNNING"]).select("id,state,result_digest,attempt,worker_run_id,worker_sha,updated_at").single();
+  const {data:updated,error:updateError}=await admin.from("autohouse_jobs").update({state:outcome,result_digest:resultDigest,error:outcome==="FAILED"?(body.error??{message:"worker failure"}):null,lease_expires_at:null,updated_at:new Date().toISOString()}).eq("id",id).eq("worker_run_id",workerLeaseIdentity(ident.run_id,ident.run_attempt)).eq("worker_sha",ident.sha).eq("state","RUNNING").gt("lease_expires_at",new Date().toISOString()).select("id,state,result_digest,attempt,worker_run_id,worker_sha,updated_at").single();
   if(updateError)throw new Error(`job terminal transition failed: ${updateError.message}`);
   return {status:outcome,job:updated};
 }
