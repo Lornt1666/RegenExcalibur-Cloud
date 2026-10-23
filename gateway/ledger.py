@@ -79,7 +79,14 @@ class GatewayLedger:
         """
         if not isinstance(authenticated_subject, str) or not authenticated_subject.strip():
             raise ValueError("authenticated_subject is required")
+        if not isinstance(contract, Mapping):
+            self.record_denial(actor=authenticated_subject, action="TASK_CREATE",
+                               reason_code="MALFORMED_CONTRACT")
+            raise ValueError("contract must be an object")
         if contract.get("initiated_by") != authenticated_subject:
+            self.record_denial(actor=authenticated_subject, action="TASK_CREATE",
+                               reason_code="INITIATOR_MISMATCH",
+                               task_id=contract.get("task_id") if isinstance(contract.get("task_id"), str) else None)
             raise ValueError("contract initiator does not match authenticated subject")
         digest = contract_digest(contract)
         encoded = json.dumps(dict(contract), sort_keys=True, separators=(",", ":"), ensure_ascii=False)
@@ -139,15 +146,36 @@ class GatewayLedger:
                         digest=digest, details={"reason_code": reason_code})
             db.commit()
 
-    def get_task(self, task_id: str) -> dict[str, Any] | None:
+    def get_task(self, task_id: str, authenticated_subject: str) -> dict[str, Any] | None:
+        """Read only the caller's own task; administrative access needs a separate privileged interface."""
+        if not isinstance(authenticated_subject, str) or not authenticated_subject.strip():
+            raise ValueError("authenticated_subject is required")
         with closing(self._connect()) as db:
-            row = db.execute("SELECT * FROM gateway_tasks WHERE task_id=?", (task_id,)).fetchone()
+            row = db.execute(
+                "SELECT * FROM gateway_tasks WHERE task_id=? AND initiated_by=?",
+                (task_id, authenticated_subject),
+            ).fetchone()
             return dict(row) if row else None
 
-    def audit_events(self, task_id: str | None = None) -> list[dict[str, Any]]:
+    def audit_events(self, authenticated_subject: str, task_id: str | None = None) -> list[dict[str, Any]]:
+        """Return events for the caller's tasks or events the caller personally generated."""
+        if not isinstance(authenticated_subject, str) or not authenticated_subject.strip():
+            raise ValueError("authenticated_subject is required")
         with closing(self._connect()) as db:
             if task_id is None:
-                rows = db.execute("SELECT * FROM gateway_audit_events ORDER BY event_id").fetchall()
+                rows = db.execute(
+                    """SELECT e.* FROM gateway_audit_events e
+                       LEFT JOIN gateway_tasks t ON t.task_id=e.task_id
+                       WHERE t.initiated_by=? OR e.actor=?
+                       ORDER BY e.event_id""",
+                    (authenticated_subject, authenticated_subject),
+                ).fetchall()
             else:
-                rows = db.execute("SELECT * FROM gateway_audit_events WHERE task_id=? ORDER BY event_id", (task_id,)).fetchall()
+                rows = db.execute(
+                    """SELECT e.* FROM gateway_audit_events e
+                       LEFT JOIN gateway_tasks t ON t.task_id=e.task_id
+                       WHERE e.task_id=? AND (t.initiated_by=? OR e.actor=?)
+                       ORDER BY e.event_id""",
+                    (task_id, authenticated_subject, authenticated_subject),
+                ).fetchall()
             return [dict(row) for row in rows]
