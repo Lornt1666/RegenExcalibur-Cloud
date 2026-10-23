@@ -29,8 +29,10 @@ jobs:
         with:
           python-version: "3.12"
       - name: Compile contract module
-        run: python -m py_compile gateway/task_contract.py gateway/job_agent.py gateway/cloud_shell_handoff.py gateway/antigravity_handoff.py gateway/aigc_contract_bridge.py gateway/ledger.py gateway/http_api.py gateway/service.py
+        run: python -m py_compile gateway/task_contract.py gateway/job_agent.py gateway/cloud_shell_handoff.py gateway/antigravity_handoff.py gateway/aigc_contract_bridge.py gateway/ledger.py gateway/http_api.py gateway/service.py gateway/test_mobile_ui.py
+      - name: Syntax-check mobile UI JavaScript
+        run: node --check gateway/web/app.js
       - name: Validate task contract schema JSON
         run: python -m json.tool gateway/task_contract.schema.json >/dev/null
       - name: Run authorization regression tests
-        run: python -m unittest gateway.test_task_contract gateway.test_job_agent gateway.test_cloud_shell_handoff gateway.test_antigravity_handoff gateway.test_aigc_contract_bridge gateway.test_ledger gateway.test_service gateway.test_http_api -v
+        run: python -m unittest gateway.test_task_contract gateway.test_job_agent gateway.test_cloud_shell_handoff gateway.test_antigravity_handoff gateway.test_aigc_contract_bridge gateway.test_ledger gateway.test_service gateway.test_http_api gateway.test_mobile_ui -v
