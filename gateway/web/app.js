@@ -1,13 +1,7 @@
 "use strict";
 const $ = id => document.getElementById(id);
 const show = (id, value) => { $(id).textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2); };
-function baseUrl() {
-  const raw = $("apiBase").value.trim() || window.location.origin;
-  const url = new URL(raw, window.location.origin);
-  if (url.protocol !== "https:" && url.hostname !== "localhost" && url.hostname !== "127.0.0.1") throw new Error("HTTPS is required except for local development.");
-  if (url.username || url.password || url.search || url.hash) throw new Error("Base URL must not contain credentials, query parameters or a fragment.");
-  return url.toString().replace(/\/$/, "");
-}
+function baseUrl() { return window.location.origin; }
 async function request(path, options = {}) {
   const token = $("token").value;
   if (!token) throw new Error("Provide a development/testing access token or connect an approved identity provider.");
@@ -37,7 +31,6 @@ async function lookup(suffix) {
 }
 $("getTask").addEventListener("click", () => lookup(""));
 $("getAudit").addEventListener("click", () => lookup("/audit"));
-$("apiBase").value = window.location.origin === "null" ? "" : window.location.origin;
 $("contract").value = JSON.stringify({
   contract_version:"1JGM-GATEWAY-TASK-1.0", task_id:"task-replace-me", idempotency_key:"idem-replace-me",
   initiated_by:"replace-with-authenticated-subject", session_ref:"session-reference", aigc_contract_ref:"existing-aigc-contract-reference",
