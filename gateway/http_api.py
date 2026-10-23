@@ -12,7 +12,8 @@ from typing import Any, Callable, Mapping
 from urllib.parse import unquote
 
 from gateway.ledger import GatewayLedger, IdempotencyConflict
-from gateway.task_contract import ContractError, authorize_task, validate_contract
+from gateway.service import AuditUnavailable, GatewayIntakeService, IntakeDenied, PersistenceUnavailable
+from gateway.task_contract import ContractError, validate_contract
 
 MAX_BODY_BYTES = 128 * 1024
 
@@ -37,6 +38,7 @@ class GovernedGatewayWSGI:
         self.ledger = ledger
         self.authenticate = authenticate
         self.approval_lookup = approval_lookup or (lambda _approval_id: None)
+        self.intake_service = GatewayIntakeService(ledger)
 
     def _response(self, start_response, status: str, payload: Mapping[str, Any]):
         body = json.dumps(dict(payload), ensure_ascii=False, separators=(",", ":")).encode("utf-8")
@@ -102,19 +104,17 @@ class GovernedGatewayWSGI:
                                   "400 Bad Request", {"error": "invalid_task_contract"},
                                   contract.get("task_id") if "contract" in locals() and isinstance(contract, Mapping) and isinstance(contract.get("task_id"), str) else None)
             try:
-                authorize_task(contract, identity, self.approval_lookup)
-            except ContractError:
-                return self._deny(start_response, subject, "AUTHORIZATION_DENIED",
-                                  "403 Forbidden", {"error": "task_not_authorized"},
-                                  contract.get("task_id") if isinstance(contract.get("task_id"), str) else None)
-            try:
-                stored = self.ledger.create_task(contract, subject)
+                stored = self.intake_service.submit(contract, identity, self.approval_lookup)
             except IdempotencyConflict:
                 return self._response(start_response, "409 Conflict", {"error": "idempotency_conflict"})
-            except Exception:
-                return self._deny(start_response, subject, "PERSISTENCE_REJECTED",
-                                  "503 Service Unavailable", {"error": "task_not_accepted", "dispatch_performed": False},
-                                  contract.get("task_id") if isinstance(contract.get("task_id"), str) else None)
+            except IntakeDenied:
+                return self._response(start_response, "403 Forbidden", {"error": "task_not_authorized"})
+            except AuditUnavailable:
+                return self._response(start_response, "503 Service Unavailable",
+                                      {"error": "audit_unavailable", "dispatch_performed": False})
+            except PersistenceUnavailable:
+                return self._response(start_response, "503 Service Unavailable",
+                                      {"error": "task_not_accepted", "dispatch_performed": False})
             return self._response(start_response, "200 OK" if stored["replayed"] else "201 Created", {
                 "task_id": stored["task_id"],
                 "state": stored["state"],
@@ -127,8 +127,8 @@ class GovernedGatewayWSGI:
             try:
                 identity = self._identity(environ)
             except AuthenticationError:
-                self._audit_denial("unauthenticated", "AUTHENTICATION_FAILED")
-                return self._response(start_response, "401 Unauthorized", {"error": "authentication_required"})
+                return self._deny(start_response, "unauthenticated", "AUTHENTICATION_FAILED",
+                                  "401 Unauthorized", {"error": "authentication_required"})
             task_id = unquote(match.group(1))
             subject = identity["subject"]
             task = self.ledger.get_task(task_id, subject)
