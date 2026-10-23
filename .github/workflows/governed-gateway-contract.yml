@@ -29,7 +29,7 @@ jobs:
         with:
           python-version: "3.12"
       - name: Compile contract module
-        run: python -m py_compile gateway/task_contract.py gateway/job_agent.py gateway/cloud_shell_handoff.py gateway/antigravity_handoff.py gateway/aigc_contract_bridge.py gateway/ledger.py gateway/service.py
+        run: python -m py_compile gateway/task_contract.py gateway/job_agent.py gateway/cloud_shell_handoff.py gateway/antigravity_handoff.py gateway/aigc_contract_bridge.py gateway/ledger.py gateway/http_api.py gateway/service.py
       - name: Validate task contract schema JSON
         run: python -m json.tool gateway/task_contract.schema.json >/dev/null
       - name: Run authorization regression tests
