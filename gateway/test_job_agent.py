@@ -55,5 +55,24 @@ class JobAgentTests(unittest.TestCase):
         with self.assertRaisesRegex(JobDataError, "remote_eligibility is invalid"):
             normalize_listing({"employer": "Example", "title": "Role", "source_url": "https://jobs.example/1", "remote_eligibility": ["remote"]}, "2026-10-23T12:00:00Z")
 
+
+    def test_application_draft_uses_only_supplied_profile_facts(self):
+        from gateway.job_agent import prepare_application_packet
+        listing = {"employer": "Example Employer", "title": "Junior Analyst", "source_url": "https://jobs.example/role/1", "required_documents": ["resume"]}
+        profile = {"name": "Candidate", "skills": ["Python"], "experience": [{"title": "Analyst Intern", "employer": "Sample Co", "summary": "Prepared weekly data reports"}], "education": [], "certifications": []}
+        packet = prepare_application_packet(listing, profile)
+        self.assertEqual(packet["status"], "DRAFT_FOR_REVIEW")
+        self.assertIn("Python", packet["cover_letter_draft"])
+        self.assertIn("Prepared weekly data reports", packet["cover_letter_draft"])
+        self.assertNotIn("10 years", packet["cover_letter_draft"])
+        self.assertFalse(packet["external_submission_performed"])
+        self.assertTrue(packet["approval_required_before_submission"])
+
+    def test_application_draft_marks_missing_profile_facts(self):
+        from gateway.job_agent import prepare_application_packet
+        packet = prepare_application_packet({"employer": "Example", "title": "Role", "source_url": "https://jobs.example/1"}, {"skills": [], "experience": [], "education": [], "certifications": []})
+        self.assertEqual(packet["missing_profile_sections"], ["skills", "experience", "education", "certifications"])
+        self.assertIn("Add verified", packet["cover_letter_draft"])
+
 if __name__ == "__main__":
     unittest.main()
