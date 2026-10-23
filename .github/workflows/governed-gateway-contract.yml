@@ -1,0 +1,38 @@
+name: Governed gateway contract tests
+
+on:
+  push:
+    branches: ["feature/governed-gateway-contract-v1"]
+    paths:
+      - "gateway/**"
+      - ".github/workflows/governed-gateway-contract.yml"
+  pull_request:
+    branches: ["RegenExcalibur-Webpage"]
+    paths:
+      - "gateway/**"
+      - ".github/workflows/governed-gateway-contract.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact candidate revision
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.12"
+      - name: Compile contract module
+        run: python -m py_compile gateway/task_contract.py gateway/job_agent.py gateway/cloud_shell_handoff.py gateway/antigravity_handoff.py gateway/aigc_contract_bridge.py gateway/ledger.py gateway/http_api.py gateway/service.py gateway/test_mobile_ui.py
+      - name: Syntax-check mobile UI JavaScript
+        run: node --check gateway/web/app.js
+      - name: Validate task contract schema JSON
+        run: python -m json.tool gateway/task_contract.schema.json >/dev/null
+      - name: Run authorization regression tests
+        run: python -m unittest gateway.test_task_contract gateway.test_job_agent gateway.test_cloud_shell_handoff gateway.test_antigravity_handoff gateway.test_aigc_contract_bridge gateway.test_ledger gateway.test_service gateway.test_http_api gateway.test_mobile_ui -v

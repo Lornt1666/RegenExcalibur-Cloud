@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'">
+  <title>1JGM Governed Gateway</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main>
+  <h1>1JGM Governed Gateway</h1>
+  <p class="intro">Review and submit a versioned task contract, then inspect its stored status and audit events. This interface never executes provider operations.</p>
+  <section aria-labelledby="connection-heading">
+    <h2 id="connection-heading">Connection</h2>
+    <p class="note">Use only with a trusted HTTPS deployment. The bearer token remains in this page's memory and is not saved to browser storage. A production deployment should obtain tokens from its approved identity provider rather than asking users to paste credentials.</p>
+    <label for="token">Access token (development/testing only)</label>
+    <input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Bearer token">
+  </section>
+  <section aria-labelledby="submit-heading">
+    <h2 id="submit-heading">Review task contract</h2>
+    <p class="note">Confirm the target, operation, scope, expiry and acceptance criteria before submitting. New tasks must enter as REQUESTED. Server policy determines authorization; the client cannot authorize itself.</p>
+    <label for="contract">Task contract JSON</label>
+    <textarea id="contract" autocapitalize="off" spellcheck="false" aria-describedby="contract-help"></textarea>
+    <p id="contract-help" class="note">Submission persists a task request only. No repository, Cloud Shell, Antigravity or job-site action is dispatched.</p>
+    <button id="submit">Validate and submit request</button>
+    <p id="status" class="status" role="status" aria-live="polite">Not connected.</p>
+    <pre id="result" aria-label="Operation result">No request submitted.</pre>
+  </section>
+  <section aria-labelledby="lookup-heading">
+    <h2 id="lookup-heading">Task record and audit</h2>
+    <label for="taskId">Task ID</label>
+    <input id="taskId" type="text" autocomplete="off" spellcheck="false" placeholder="task-…">
+    <div class="row">
+      <button id="getTask" class="secondary">Retrieve task</button>
+      <button id="getAudit" class="secondary">Retrieve audit events</button>
+      <button id="cancelTask" class="secondary">Cancel pending task</button>
+    </div>
+    <pre id="record" aria-label="Task record">No task retrieved.</pre>
+  </section>
+  <p class="note">Prototype boundary: this page does not supply an identity provider, approval UI, cancellation endpoint, live executor, or production persistence. Keep the API and this page on the same origin behind an approved HTTPS reverse proxy until a reviewed CORS and identity design exists.</p>
+</main>
+<script src="app.js" defer></script>
+</body>
+</html>
