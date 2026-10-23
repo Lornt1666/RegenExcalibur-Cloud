@@ -52,6 +52,10 @@ The contract is intended to bind a gateway request to an existing AIGC TaskContr
 | AIGC contract bridge | Partial, CI pending | Defense-in-depth shape/allowlist check; no live AIGC validator call or dispatch |
 | Production deployment | Not authorized or performed | Draft PR only |
 
+## External-service compatibility
+
+See [the capability matrix and exact Neon resource blockers](EXTERNAL_SERVICE_MATRIX.md). No Neon resources have been inspected through an authenticated provider API, provisioned, or changed.
+
 ## Official integration research
 
 - The [Cloud Shell REST reference](https://docs.cloud.google.com/shell/docs/reference/rest) documents environment start/get/authorize and SSH-key management, but no general arbitrary-command execution method. This branch therefore implements a user-assisted diagnostic handoff instead of claiming API command dispatch.
