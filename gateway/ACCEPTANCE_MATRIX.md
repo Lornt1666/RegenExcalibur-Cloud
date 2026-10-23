@@ -42,5 +42,5 @@ See [draft Supabase security review PR #7](https://github.com/Lornt1666/RegenExc
 - AIGC `main`: `5ff907ebd9a4d477100e38032db2b916b1aba9ab` (recheck before integration).
 - Gateway repository base at time of PR #6: `RegenExcalibur-Webpage` / `c22e71ee06380097ddfde1dbabb3679102bb1f18`.
 - Worker remediation PR #5 current candidate: `e30c482db78b0198b37ab6b121bd5e74d384562d`.
-- Gateway contract PR #6 current candidate: `d4f329a7bcf05ec4783d8bb9884f290ce012f328`.
+- Gateway contract PR #6 code-tested candidate: `b3366e44fbcfcef0146eedafb15ad3b10d26ebb6` (35 tests passed at exact-head CI); latest documentation-only candidate at this snapshot: `5e4f458da3e2b41e4df4e30827cba73130993852`.
 - Supabase project reference: `wubfqagfkkylqzwswdfs`; live function `autohouse-worker` version 3 remains deployed; no production deployment or mutation performed.
