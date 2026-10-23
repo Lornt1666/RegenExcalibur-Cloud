@@ -4,7 +4,7 @@
 
 The current evidence-backed acceptance snapshot is in [ACCEPTANCE_MATRIX.md](ACCEPTANCE_MATRIX.md).
 
-This branch contains **non-dispatching policy primitives**. It is not a deployed gateway and does not yet provide an authenticated HTTP API, mobile UI, durable audit ledger, identity provider, provider execution, or application submission.
+This branch contains **non-dispatching policy primitives**. It is not a deployed gateway and does not yet provide an authenticated HTTP API, mobile UI, production-grade shared audit/idempotency store, identity provider, provider execution, or application submission.
 
 The contract is intended to bind a gateway request to an existing AIGC TaskContract through `aigc_contract_ref`. The existing AIGC contract and governance authority remain authoritative; this envelope does not replace them.
 
