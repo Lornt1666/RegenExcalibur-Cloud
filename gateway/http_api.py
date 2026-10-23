@@ -122,7 +122,29 @@ class GovernedGatewayWSGI:
                 "replayed": stored["replayed"],
                 "dispatch_performed": False,
             })
-        match = re.fullmatch(r"/v1/tasks/([^/]+)(?:/(audit))?", path)
+        match = re.fullmatch(r"/v1/tasks/([^/]+)(?:/(audit|cancel))?", path)
+        if match and match.group(2) == "cancel" and method == "POST":
+            try:
+                identity = self._identity(environ)
+            except AuthenticationError:
+                return self._deny(start_response, "unauthenticated", "AUTHENTICATION_FAILED",
+                                  "401 Unauthorized", {"error": "authentication_required"})
+            task_id = unquote(match.group(1))
+            try:
+                result = self.ledger.cancel_task(task_id, identity["subject"])
+            except Exception:
+                return self._response(start_response, "503 Service Unavailable",
+                                      {"error": "cancellation_unavailable", "dispatch_performed": False})
+            if result is None:
+                return self._response(start_response, "404 Not Found", {"error": "task_not_found"})
+            if not result["cancelled"] and not result["already_cancelled"]:
+                return self._response(start_response, "409 Conflict", {
+                    "error": "task_not_cancellable", "state": result["state"],
+                    "dispatch_performed": False,
+                })
+            return self._response(start_response, "200 OK", {
+                **result, "dispatch_performed": False,
+            })
         if match and method == "GET":
             try:
                 identity = self._identity(environ)
