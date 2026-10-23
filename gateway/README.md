@@ -6,7 +6,7 @@ The current evidence-backed acceptance snapshot is in [ACCEPTANCE_MATRIX.md](ACC
 
 This branch now includes a **non-dispatching WSGI intake API with injected authentication**, but no production identity verifier, deployment, shared production audit/idempotency store, provider execution, or application submission. A responsive static mobile UI prototype exists under `gateway/web/`; it is not yet verified on a real iPhone or connected to a production identity provider. The API is not production-ready until the real identity verifier and shared persistence are integrated and tested.
 
-The contract is intended to bind a gateway request to an existing AIGC TaskContract through `aigc_contract_ref`. The existing AIGC contract and governance authority remain authoritative; this envelope does not replace them.
+The contract is intended to bind a gateway request to an existing AIGC TaskContract through `aigc_contract_ref`. See [AIGC_INTEGRATION.md](AIGC_INTEGRATION.md) for the inspected v0.18 schema, Phase 5/6 approval boundary, and exact remaining integration steps. The existing AIGC contract and governance authority remain authoritative; this envelope does not replace them.
 
 ## Included
 
