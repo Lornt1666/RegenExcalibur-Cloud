@@ -11,8 +11,10 @@ The contract is intended to bind a gateway request to an existing AIGC TaskContr
 ## Included
 
 - `task_contract.schema.json`: versioned JSON Schema.
-- `task_contract.py`: server-side envelope validation and policy checks.
-- `test_task_contract.py`: authorization boundary regression tests.
+- `task_contract.py`: server-side envelope validation and policy checks, including operation-to-target binding and credential-free HTTPS job URLs.
+- `ledger.py`: transactional SQLite task intake, identity-scoped idempotency, and durable allow/denial audit events for local/single-node integration; not a production multi-instance database.
+- `test_task_contract.py`: authorization boundary regression tests, including target mismatch and unsafe job URLs.
+- `test_ledger.py`: persistence, idempotency replay/conflict, and durable denial-event regression tests.
 - `job_agent.py`: deterministic listing normalization, deduplication, evidence-bound skills/eligibility assessment, and truthful application-draft preparation from supplied verified profile facts.
 - `cloud_shell_handoff.py`: typed read-only diagnostic handoff and receipt parser; no Cloud Shell API call or command execution.
 - `antigravity_handoff.py`: workspace-bound user-assisted task handoff; no desktop, SDK, CLI, or managed-agent invocation.
@@ -42,8 +44,8 @@ The contract is intended to bind a gateway request to an existing AIGC TaskContr
 | Operation argument allowlists | Implemented, CI pending | Unit tests cover invalid operations and path traversal |
 | Trusted identity/target checks | Partial | Pure policy evaluator; identity provider and server configuration not integrated |
 | Approval binding | Partial | Durable lookup is injected as a callback; production approval store absent |
-| Replay protection | Not implemented | Requires persistent idempotency store and atomic create |
-| Durable audit ledger | Not implemented | Must be integrated before any dispatch |
+| Replay protection | Implemented as a local primitive; production integration pending | SQLite unique key and transactional create tested; not a multi-instance production deployment |
+| Durable audit ledger | Local primitive implemented; production integration pending | SQLite intake/denial events are persisted and tested; no HTTP API or provider dispatch uses it yet |
 | Job listing normalization and deduplication | Implemented, CI pending | Pure functions and tests; no source connectors |
 | Factual eligibility assessment | Implemented, CI pending | Only supplied verified profile facts are considered |
 | Job application drafting | Partial, CI pending | Produces a review-only draft from supplied verified facts; profile source and document workflow are not integrated |
