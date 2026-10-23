@@ -25,7 +25,7 @@ class JobAgentTests(unittest.TestCase):
             "required_skills": ["Python"], "preferred_skills": ["SQL"],
             "work_authorization": "Canada", "remote_eligibility": "remote",
         }
-        result = assess_eligibility(listing, {"skills": ["Python"]})
+        result = assess_eligibility(listing, {"skills": ["Python"], "remote_eligibility": "remote"})
         self.assertEqual(result["recommendation"], "NEEDS_VERIFICATION")
         self.assertEqual(result["matched_required_skills"], ["Python"])
         self.assertEqual(result["unknown_eligibility_fields"], ["work_authorization"])
