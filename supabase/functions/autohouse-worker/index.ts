@@ -95,7 +95,7 @@ async function finishJob(admin: ReturnType<typeof createClient>, ident: Awaited<
       if(artifactError)throw new Error(`artifact ledger insert failed; job remains nonterminal: ${artifactError.message}`);
     }
   }
-  const {data:updated,error:updateError}=await admin.from("autohouse_jobs").update({state:outcome,result_digest:resultDigest,error:outcome==="FAILED"?(body.error??{message:"worker failure"}):null,lease_expires_at:null,updated_at:new Date().toISOString()}).eq("id",id).eq("worker_run_id",ident.run_id).select("id,state,result_digest,attempt,worker_run_id,worker_sha,updated_at").single();
+  const {data:updated,error:updateError}=await admin.from("autohouse_jobs").update({state:outcome,result_digest:resultDigest,error:outcome==="FAILED"?(body.error??{message:"worker failure"}):null,lease_expires_at:null,updated_at:new Date().toISOString()}).eq("id",id).eq("worker_run_id",ident.run_id).in("state",["LEASED","RUNNING"]).select("id,state,result_digest,attempt,worker_run_id,worker_sha,updated_at").single();
   if(updateError)throw new Error(`job terminal transition failed: ${updateError.message}`);
   return {status:outcome,job:updated};
 }
