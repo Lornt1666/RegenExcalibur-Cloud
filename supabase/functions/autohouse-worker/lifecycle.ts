@@ -57,3 +57,14 @@ export function artifactMatchesExisting(existing: Partial<ArtifactBinding>, expe
     && existing.revision_digest === expected.revision_digest
     && existing.artifact_digest === expected.artifact_digest;
 }
+
+export function normalizeRequestedJobTypes(value: unknown): string[] {
+  if (value === undefined || value === null) return ["shell_certification"];
+  if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
+    throw new Error("job_types must be an array of strings");
+  }
+  if (value.some((item) => item !== "shell_certification")) {
+    throw new Error("unsupported job type requested");
+  }
+  return value.length ? [...new Set(value)] : ["shell_certification"];
+}
