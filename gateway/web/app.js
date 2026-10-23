@@ -31,6 +31,19 @@ async function lookup(suffix) {
 }
 $("getTask").addEventListener("click", () => lookup(""));
 $("getAudit").addEventListener("click", () => lookup("/audit"));
+$("cancelTask").addEventListener("click", async () => {
+  const id = $("taskId").value.trim();
+  if (!id || id.includes("/") || id.includes("\\") || id === "." || id === "..") {
+    show("record", "Enter a valid task ID before cancellation.");
+    return;
+  }
+  try {
+    const result = await request("/v1/tasks/" + encodeURIComponent(id) + "/cancel", {method:"POST"});
+    show("record", result);
+  } catch (error) {
+    show("record", String(error.message || error));
+  }
+});
 $("contract").value = JSON.stringify({
   contract_version:"1JGM-GATEWAY-TASK-1.0", task_id:"task-replace-me", idempotency_key:"idem-replace-me",
   initiated_by:"replace-with-authenticated-subject", session_ref:"session-reference", aigc_contract_ref:"existing-aigc-contract-reference",
