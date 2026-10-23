@@ -63,6 +63,7 @@ class GatewayLedgerTests(unittest.TestCase):
         other = sample()
         other["task_id"] = "task-002"
         other["idempotency_key"] = "idem-002"
+        other["initiated_by"] = "user-2"
         self.ledger.create_task(other, "user-2")
         self.assertEqual(len(self.ledger.audit_events("user-1")), 1)
         self.assertEqual(self.ledger.audit_events("user-1", "task-002"), [])
