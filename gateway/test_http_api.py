@@ -53,7 +53,7 @@ class GatewayHTTPAPITests(unittest.TestCase):
         self.assertEqual(status, "201 Created")
         self.assertEqual(headers["Cache-Control"], "no-store")
         self.assertFalse(body["dispatch_performed"])
-        self.assertEqual(self.ledger.get_task("task-001", "user-1")["state"], "REQUESTED")
+        self.assertEqual(self.ledger.get_task("task-001", "user-1")["state"], "AUTHORIZED")
 
     def test_same_request_replays_idempotently(self):
         first = invoke(self.app, "POST", "/v1/tasks", sample())
