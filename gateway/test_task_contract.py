@@ -71,5 +71,45 @@ class TaskContractTests(unittest.TestCase):
             authorize_task(contract, self.identity(), lambda _: record)
 
 
+
+    def test_rejects_non_string_operation_without_crashing(self):
+        contract = sample()
+        contract["operation"] = ["repo.read_file"]
+        with self.assertRaisesRegex(ContractError, "operation is not allowlisted"):
+            validate_contract(contract)
+
+    def test_rejects_malformed_trusted_identity_scope(self):
+        contract = sample()
+        identity = self.identity()
+        identity["repositories"] = "Lornt1666/AIGC"
+        with self.assertRaisesRegex(ContractError, "repositories scope is malformed"):
+            authorize_task(contract, identity, lambda _: None)
+
+    def test_rejects_aigc_target_outside_authorized_project_scope(self):
+        contract = sample()
+        contract["operation"] = "aigc.run_phase"
+        contract["target"] = {"kind": "project", "project_id": "unapproved-project"}
+        contract["arguments"] = {"phase": "phase2", "mode": "dry_run"}
+        identity = self.identity()
+        identity["projects"] = ["approved-project"]
+        with self.assertRaisesRegex(ContractError, "outside authenticated identity scope"):
+            authorize_task(contract, identity, lambda _: None)
+
+    def test_rejects_expired_server_side_approval(self):
+        contract = sample("job.submit_application")
+        record = {"decision": "APPROVED", "task_id": contract["task_id"],
+                  "contract_sha256": contract_digest(contract), "approver": "reviewer-2",
+                  "expires_at": (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()}
+        with self.assertRaisesRegex(ContractError, "approval has expired"):
+            authorize_task(contract, self.identity(), lambda _: record)
+
+    def test_rejects_antigravity_handoff_without_workspace_binding(self):
+        contract = sample()
+        contract["operation"] = "google.antigravity.prepare_handoff"
+        contract["target"] = {"kind": "antigravity"}
+        contract["arguments"] = {"task_brief": "Review a test change"}
+        with self.assertRaisesRegex(ContractError, "explicit workspace binding"):
+            validate_contract(contract)
+
 if __name__ == "__main__":
     unittest.main()
