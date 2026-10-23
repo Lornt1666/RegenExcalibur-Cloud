@@ -86,7 +86,7 @@ class GatewayLedger:
         now = _utc_now()
         conflict: str | None = None
         result: dict[str, Any] | None = None
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             db.execute("BEGIN IMMEDIATE")
             existing = db.execute(
                 "SELECT * FROM gateway_tasks WHERE initiated_by=? AND idempotency_key=?",
@@ -133,19 +133,19 @@ class GatewayLedger:
         """Durably record a policy denial without storing raw secrets or request bodies."""
         if not actor.strip() or not action.strip() or not reason_code.strip():
             raise ValueError("actor, action, and reason_code are required")
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             db.execute("BEGIN IMMEDIATE")
             self._audit(db, actor=actor, action=action, outcome="DENIED", task_id=task_id,
                         digest=digest, details={"reason_code": reason_code})
             db.commit()
 
     def get_task(self, task_id: str) -> dict[str, Any] | None:
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             row = db.execute("SELECT * FROM gateway_tasks WHERE task_id=?", (task_id,)).fetchone()
             return dict(row) if row else None
 
     def audit_events(self, task_id: str | None = None) -> list[dict[str, Any]]:
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             if task_id is None:
                 rows = db.execute("SELECT * FROM gateway_audit_events ORDER BY event_id").fetchall()
             else:
