@@ -1,0 +1,31 @@
+name: AutoHouse worker lifecycle regression tests
+
+on:
+  push:
+    branches: ["fix/autohouse-worker-recovery-artifact-order"]
+    paths:
+      - "supabase/functions/autohouse-worker/**"
+      - ".github/workflows/autohouse-worker-lifecycle-tests.yml"
+  pull_request:
+    branches: ["RegenExcalibur-Webpage"]
+    paths:
+      - "supabase/functions/autohouse-worker/**"
+      - ".github/workflows/autohouse-worker-lifecycle-tests.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lifecycle-tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout exact candidate revision
+        uses: actions/checkout@v4
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Run isolated lifecycle tests
+        run: deno test --no-prompt --deny-net --deny-env --deny-write supabase/functions/autohouse-worker/lifecycle_test.ts
