@@ -1,4 +1,4 @@
-import { artifactMatchesExisting, expiredLeaseDisposition, isFinishableState, workerLeaseIdentity, workerLeaseIsCurrent } from "./lifecycle.ts";
+import { artifactMatchesExisting, expiredLeaseDisposition, isFinishableState, workerLeaseIdentity, workerLeaseIsCurrent, normalizeRequestedJobTypes } from "./lifecycle.ts";
 
 function assertEquals<T>(actual: T, expected: T, message: string): void {
   if (actual !== expected) throw new Error(`${message}: expected ${String(expected)}, got ${String(actual)}`);
@@ -55,4 +55,12 @@ Deno.test("worker lease rejects stale attempt, wrong SHA, and expired lease", ()
   assertEquals(workerLeaseIsCurrent(lease, {...expected, run_attempt: "1"}, Date.parse("2029-01-01T00:00:00Z")), false, "old workflow attempt");
   assertEquals(workerLeaseIsCurrent(lease, {...expected, sha: "different"}, Date.parse("2029-01-01T00:00:00Z")), false, "wrong commit SHA");
   assertEquals(workerLeaseIsCurrent(lease, expected, Date.parse("2031-01-01T00:00:00Z")), false, "expired lease");
+});
+
+Deno.test("worker only leases explicitly supported job types", () => {
+  assertEquals(normalizeRequestedJobTypes(undefined).join(","), "shell_certification", "default supported type");
+  assertEquals(normalizeRequestedJobTypes(["shell_certification"]).join(","), "shell_certification", "supported type");
+  let rejected = false;
+  try { normalizeRequestedJobTypes(["arbitrary_command"]); } catch { rejected = true; }
+  assertEquals(rejected, true, "unsupported job type denied");
 });
