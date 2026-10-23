@@ -24,7 +24,7 @@ GRANT UPDATE (full_name, avatar_url, bio, website, location)
 
 -- RLS remains responsible for row ownership. These capabilities are not needed
 -- for ordinary app row CRUD and bypass row-level isolation or widen DDL powers.
-REVOKE TRUNCATE, TRIGGER, REFERENCES
+REVOKE MAINTAIN, TRUNCATE, TRIGGER, REFERENCES
   ON TABLE public.profiles, public.autohouse_jobs,
              public.autohouse_artifacts, public.autohouse_events
   FROM authenticated;
