@@ -116,6 +116,16 @@ class GatewayHTTPAPITests(unittest.TestCase):
 
 
 
+
+    def test_unauthenticated_read_fails_closed_if_audit_storage_is_unavailable(self):
+        def fail_audit(**_kwargs):
+            raise OSError("disk unavailable")
+        self.ledger.record_denial = fail_audit
+        status, _, body = invoke(self.app, "GET", "/v1/tasks/task-001", auth="Bearer bad")
+        self.assertEqual(status, "503 Service Unavailable")
+        self.assertEqual(body["error"], "audit_unavailable")
+        self.assertFalse(body["dispatch_performed"])
+
     def test_persistence_failure_is_denied_and_audited(self):
         def fail_create(*_args, **_kwargs):
             raise RuntimeError("database unavailable")
