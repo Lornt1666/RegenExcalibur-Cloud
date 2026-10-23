@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { createRemoteJWKSet, jwtVerify } from "npm:jose@6.1.0";
-import { artifactMatchesExisting, expiredLeaseDisposition } from "./lifecycle.ts";
+import { artifactMatchesExisting, expiredLeaseDisposition, isFinishableState } from "./lifecycle.ts";
 
 const TRUTH = "SCHEMATIC — NOT FOR CONSTRUCTION — UNSEALED — PROFESSIONAL / AHJ REVIEW REQUIRED.";
 const VERSION = "v441";
@@ -78,7 +78,7 @@ async function startJob(admin: ReturnType<typeof adminClient>, ident: Awaited<Re
 async function finishJob(admin: ReturnType<typeof adminClient>, ident: Awaited<ReturnType<typeof githubIdentity>>, body: Record<string,unknown>) {
   const id=String(body.job_id??""),outcome=String(body.outcome??"");if(!id)throw new Error("missing job_id");if(!["SUCCEEDED","FAILED"].includes(outcome))throw new Error("invalid outcome");
   const {data:current,error:currentError}=await admin.from("autohouse_jobs").select("id,owner_id,project_id,project_revision_digest,state,worker_run_id,worker_repository").eq("id",id).maybeSingle();
-  if(currentError)throw new Error(currentError.message);if(!current)throw new Error("job not found");if(current.worker_run_id!==ident.run_id||current.worker_repository!==ident.repository)throw new Error("job lease ownership mismatch");if(!["LEASED","RUNNING"].includes(current.state))throw new Error(`job is not finishable from state ${current.state}`);
+  if(currentError)throw new Error(currentError.message);if(!current)throw new Error("job not found");if(current.worker_run_id!==ident.run_id||current.worker_repository!==ident.repository)throw new Error("job lease ownership mismatch");if(!isFinishableState(current.state))throw new Error(`job is not finishable from state ${current.state}`);
   const resultDigest=typeof body.result_digest==="string"?body.result_digest:null;if(outcome==="SUCCEEDED"&&!resultDigest)throw new Error("successful job requires result_digest");
   // Stage the artifact before the terminal SUCCEEDED transition. If the job update
   // fails, a retry can reconcile the same owner/digest/job tuple idempotently.
