@@ -29,6 +29,12 @@ class MobileGatewayUITests(unittest.TestCase):
         self.assertIn("return window.location.origin", self.js)
         self.assertNotIn("apiBase", self.html + self.js)
 
+    def test_cancellation_control_uses_owner_scoped_pre_execution_endpoint(self):
+        self.assertIn('id="cancelTask"', self.html)
+        self.assertIn('"/v1/tasks/" + encodeURIComponent(id) + "/cancel"', self.js)
+        self.assertIn('method:"POST"', self.js)
+        self.assertIn("Cancel pending task", self.html)
+
     def test_user_controlled_values_are_rendered_as_text_not_html(self):
         self.assertIn("$(id).textContent", self.js)
         self.assertNotIn("innerHTML", self.html + self.js)
