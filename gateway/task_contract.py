@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 import json
 import re
+from urllib.parse import urlsplit
 from typing import Any, Callable, Mapping
 
 CONTRACT_VERSION = "1JGM-GATEWAY-TASK-1.0"
@@ -85,6 +86,18 @@ def validate_contract(contract: Mapping[str, Any], now: datetime | None = None) 
     args, op = contract["arguments"], contract["operation"]
     if not isinstance(args, Mapping):
         raise ContractError("arguments must be an object")
+    expected_target_kinds = {
+        "repo.read_file": {"repository"},
+        "repo.list_tree": {"repository"},
+        "aigc.run_phase": {"repository", "project"},
+        "job.search": {"job_platform"},
+        "job.prepare_application": {"job_platform"},
+        "job.submit_application": {"job_platform"},
+        "google.cloud_shell.read_only_diagnostic": {"cloud_shell"},
+        "google.antigravity.prepare_handoff": {"antigravity"},
+    }
+    if target["kind"] not in expected_target_kinds[op]:
+        raise ContractError("target kind does not match the requested operation")
     allowed_args = {
         "repo.read_file": {"path"}, "repo.list_tree": {"path"},
         "aigc.run_phase": {"phase", "mode"},
@@ -121,6 +134,21 @@ def validate_contract(contract: Mapping[str, Any], now: datetime | None = None) 
             raise ContractError("job search sources are not allowlisted")
     if op == "job.prepare_application" and not all(isinstance(args.get(k), str) and args[k].strip() for k in ("job_url", "profile_reference")):
         raise ContractError("application preparation requires job_url and profile_reference")
+    if op in {"job.prepare_application", "job.submit_application"}:
+        url = args.get("job_url")
+        try:
+            parsed_url = urlsplit(url) if isinstance(url, str) else None
+            valid_https_url = (
+                parsed_url is not None
+                and parsed_url.scheme == "https"
+                and bool(parsed_url.hostname)
+                and parsed_url.username is None
+                and parsed_url.password is None
+            )
+        except ValueError:
+            valid_https_url = False
+        if not valid_https_url:
+            raise ContractError("job_url must be a credential-free HTTPS URL")
     if op == "job.submit_application":
         if not all(isinstance(args.get(k), str) and args[k].strip() for k in ("job_url", "application_reference")):
             raise ContractError("submission requires a verified job URL and application reference")
