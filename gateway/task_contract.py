@@ -60,11 +60,11 @@ def validate_contract(contract: Mapping[str, Any], now: datetime | None = None) 
     for field in ("task_id", "idempotency_key", "initiated_by", "session_ref", "aigc_contract_ref", "audit_correlation_id"):
         if not isinstance(contract[field], str) or not contract[field].strip():
             raise ContractError(f"{field} must be a non-empty string")
-    if contract["operation"] not in OPERATIONS:
+    if not isinstance(contract["operation"], str) or contract["operation"] not in OPERATIONS:
         raise ContractError("operation is not allowlisted")
-    if contract["risk_level"] not in {"low", "medium", "high", "critical"}:
+    if not isinstance(contract["risk_level"], str) or contract["risk_level"] not in {"low", "medium", "high", "critical"}:
         raise ContractError("invalid risk_level")
-    if contract["state"] not in {"REQUESTED", "AUTHORIZED", "REJECTED", "BLOCKED", "CANCELLED"}:
+    if not isinstance(contract["state"], str) or contract["state"] not in {"REQUESTED", "AUTHORIZED", "REJECTED", "BLOCKED", "CANCELLED"}:
         raise ContractError("invalid gateway state")
     if not isinstance(contract["resource_scope"], list) or not contract["resource_scope"] or any(not isinstance(x, str) or not x.strip() for x in contract["resource_scope"]):
         raise ContractError("resource_scope must be a non-empty list of strings")
@@ -80,7 +80,7 @@ def validate_contract(contract: Mapping[str, Any], now: datetime | None = None) 
     target = contract["target"]
     if not isinstance(target, Mapping) or set(target) - TARGET_KEYS or "kind" not in target:
         raise ContractError("target is malformed or contains unsupported fields")
-    if target["kind"] not in {"repository", "project", "cloud_shell", "antigravity", "job_platform"}:
+    if not isinstance(target["kind"], str) or target["kind"] not in {"repository", "project", "cloud_shell", "antigravity", "job_platform"}:
         raise ContractError("target kind is not allowlisted")
     args, op = contract["arguments"], contract["operation"]
     if not isinstance(args, Mapping):
@@ -104,12 +104,20 @@ def validate_contract(contract: Mapping[str, Any], now: datetime | None = None) 
             raise ContractError("repository path traversal is prohibited")
         if not isinstance(target.get("repository"), str) or not target["repository"] or not isinstance(target.get("branch"), str) or not target["branch"]:
             raise ContractError("repository operations require repository and branch binding")
-    if op == "aigc.run_phase" and (args.get("phase") not in PHASES or args.get("mode") not in {"dry_run", "real_data_read_only", "manual_handoff"}):
+    if op == "aigc.run_phase" and (
+        not isinstance(args.get("phase"), str) or args.get("phase") not in PHASES
+        or not isinstance(args.get("mode"), str)
+        or args.get("mode") not in {"dry_run", "real_data_read_only", "manual_handoff"}
+    ):
         raise ContractError("AIGC phase or mode is not allowlisted")
+    if op == "aigc.run_phase" and target["kind"] not in {"repository", "project"}:
+        raise ContractError("AIGC phase execution requires an explicit repository or project target")
     if op == "job.search":
         if not isinstance(args.get("query"), str) or not args["query"].strip():
             raise ContractError("job search requires a non-empty query")
-        if not isinstance(args.get("sources"), list) or not args["sources"] or not set(args["sources"]) <= SOURCES:
+        if (not isinstance(args.get("sources"), list) or not args["sources"]
+                or any(not isinstance(source, str) for source in args["sources"])
+                or not set(args["sources"]) <= SOURCES):
             raise ContractError("job search sources are not allowlisted")
     if op == "job.prepare_application" and not all(isinstance(args.get(k), str) and args[k].strip() for k in ("job_url", "profile_reference")):
         raise ContractError("application preparation requires job_url and profile_reference")
@@ -123,8 +131,11 @@ def validate_contract(contract: Mapping[str, Any], now: datetime | None = None) 
     if op == "google.cloud_shell.read_only_diagnostic":
         if args.get("diagnostic") not in DIAGNOSTICS or not isinstance(target.get("project_id"), str) or not target["project_id"]:
             raise ContractError("Cloud Shell operation must be a typed read-only diagnostic with explicit project")
-    if op == "google.antigravity.prepare_handoff" and (not isinstance(args.get("task_brief"), str) or not args["task_brief"].strip()):
-        raise ContractError("Antigravity handoff requires a task brief")
+    if op == "google.antigravity.prepare_handoff":
+        if not isinstance(args.get("task_brief"), str) or not args["task_brief"].strip():
+            raise ContractError("Antigravity handoff requires a task brief")
+        if target["kind"] != "antigravity" or not isinstance(target.get("workspace_id"), str) or not target["workspace_id"]:
+            raise ContractError("Antigravity handoff requires an explicit workspace binding")
     current = (now or datetime.now(timezone.utc)).astimezone(timezone.utc)
     if _parse_time(contract["expires_at"], "expires_at") <= current:
         raise ContractError("task contract has expired")
@@ -137,8 +148,16 @@ def authorize_task(contract: Mapping[str, Any], identity: Mapping[str, Any], app
     approval_lookup must read a durable server-side approval record.
     """
     validate_contract(contract, now)
-    if set(identity) - IDENTITY_KEYS or not isinstance(identity.get("subject"), str):
+    if not isinstance(identity, Mapping) or set(identity) - IDENTITY_KEYS:
         raise ContractError("trusted identity context is malformed")
+    if not isinstance(identity.get("subject"), str) or not identity["subject"].strip():
+        raise ContractError("trusted identity subject is missing")
+    for field in ("repositories", "projects"):
+        values = identity.get(field, [])
+        if not isinstance(values, list) or any(not isinstance(value, str) for value in values):
+            raise ContractError(f"trusted identity {field} scope is malformed")
+    if "can_approve" in identity and type(identity["can_approve"]) is not bool:
+        raise ContractError("trusted identity can_approve flag is malformed")
     if contract["initiated_by"] != identity["subject"]:
         raise ContractError("initiating identity mismatch")
     target = contract["target"]
@@ -146,11 +165,18 @@ def authorize_task(contract: Mapping[str, Any], identity: Mapping[str, Any], app
         raise ContractError("repository is outside authenticated identity scope")
     if contract["operation"] == "google.cloud_shell.read_only_diagnostic" and target.get("project_id") not in identity.get("projects", []):
         raise ContractError("project is outside authenticated identity scope")
+    if contract["operation"] == "aigc.run_phase":
+        repository = target.get("repository")
+        project = target.get("project_id")
+        if repository and repository not in identity.get("repositories", []):
+            raise ContractError("AIGC repository is outside authenticated identity scope")
+        if project and project not in identity.get("projects", []):
+            raise ContractError("AIGC project is outside authenticated identity scope")
     if contract["operation"] in PROTECTED:
         if not identity.get("can_approve", False):
             raise ContractError("identity is not authorized to approve protected actions")
         record = approval_lookup(contract["approval_id"])
-        if not record or record.get("decision") != "APPROVED":
+        if not isinstance(record, Mapping) or record.get("decision") != "APPROVED":
             raise ContractError("approval record missing or not approved")
         if record.get("task_id") != contract["task_id"]:
             raise ContractError("approval task binding mismatch")
