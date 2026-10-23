@@ -37,7 +37,14 @@ The connected Supabase catalog was queried read-only after this candidate was re
 - `public.autohouse_jobs_state_check` explicitly permits `QUEUED`, `LEASED`, `RUNNING`, `SUCCEEDED`, `RETRYABLE_FAILURE`, `FAILED`, and `CANCELLED`. The candidate's `RETRYABLE_FAILURE` recovery value is therefore compatible with the current live CHECK constraint.
 - `public.autohouse_artifacts` has unique index `autohouse_artifacts_owner_id_artifact_digest_key` on `(owner_id, artifact_digest)`.
 - `public.autohouse_jobs` has unique index `autohouse_jobs_owner_id_idempotency_key_key` on `(owner_id, idempotency_key)`.
-- The artifact unique key is owner/digest scoped, not job/revision scoped. The candidate must continue to compare the stored `job_id` and `revision_digest` before reusing an existing digest. The existing unique index prevents two concurrent inserts for the same owner/digest, but a race can still yield a unique-violation error to one caller; that caller must reconcile by re-reading and verifying the exact binding rather than treating the conflict as success.
+- The artifact unique key is owner/digest scoped, not job/revision scoped. The candidate compares the stored `job_id` and `revision_digest` before reusing an existing digest. If insert returns an error, the current candidate re-reads the owner/digest row and proceeds only when owner, job, revision and artifact digest all match exactly. This covers the common concurrent-unique-conflict path at source level; database-level race behavior still requires staging integration tests.
 - This was a catalog inspection only. No schema, data, permissions, function version, or production resource was modified.
 
 This schema evidence removes the specific concern that `RETRYABLE_FAILURE` is invalid in the current live check constraint. It does not prove concurrency correctness or deployment readiness; those still require isolated database-level race tests and a non-production deployment test.
+
+## Latest artifact-conflict remediation and exact-head CI (2026-10-23)
+
+- Candidate head: `bb70cd610e8d35540de4950819d64aeac80b23f2`.
+- [Exact-head CI run 40024252106](https://github.com/Lornt1666/RegenExcalibur-Cloud/actions/runs/40024252106) checked out this SHA; Deno type-check passed and all 10 isolated lifecycle tests passed.
+- The latest source catches an artifact insert error, re-reads by `owner_id + artifact_digest`, and accepts the result only when `owner_id`, `job_id`, `revision_digest`, and `artifact_digest` match the expected binding. If the lookup fails, no exact row exists, or any binding differs, completion fails closed and the job remains nonterminal.
+- This is still source-level logic plus isolated lifecycle tests. It does not prove the concurrent insert race against a real PostgreSQL instance, independent hashing of artifact content, or deployment behavior.
