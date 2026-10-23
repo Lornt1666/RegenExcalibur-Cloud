@@ -5,22 +5,27 @@ import unittest
 class MobileGatewayUITests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.html = (pathlib.Path(__file__).parent / "web" / "index.html").read_text(encoding="utf-8")
+        root = pathlib.Path(__file__).parent / "web"
+        cls.html = (root / "index.html").read_text(encoding="utf-8")
+        cls.js = (root / "app.js").read_text(encoding="utf-8")
 
     def test_mobile_viewport_and_accessible_status_are_present(self):
         self.assertIn('name="viewport"', self.html)
         self.assertIn('aria-live="polite"', self.html)
         self.assertIn('@media(min-width:620px)', self.html)
 
-    def test_ui_does_not_persist_access_token_in_browser_storage(self):
-        self.assertNotIn("localStorage", self.html)
-        self.assertNotIn("sessionStorage", self.html)
-        self.assertIn('credentials:"omit"', self.html)
-        self.assertIn('cache:"no-store"', self.html)
+    def test_strict_script_csp_and_no_browser_storage_for_tokens(self):
+        self.assertIn("script-src 'self'", self.html)
+        csp = self.html.split("Content-Security-Policy", 1)[1].split(">", 1)[0]
+        self.assertNotIn("unsafe-inline", csp)
+        self.assertNotIn("localStorage", self.html + self.js)
+        self.assertNotIn("sessionStorage", self.html + self.js)
+        self.assertIn('credentials:"omit"', self.js)
+        self.assertIn('cache:"no-store"', self.js)
 
     def test_user_controlled_values_are_rendered_as_text_not_html(self):
-        self.assertIn("$(id).textContent", self.html)
-        self.assertNotIn("innerHTML", self.html)
+        self.assertIn("$(id).textContent", self.js)
+        self.assertNotIn("innerHTML", self.html + self.js)
 
     def test_ui_explicitly_disclaims_provider_dispatch_and_production_auth(self):
         self.assertIn("never executes provider operations", self.html)
