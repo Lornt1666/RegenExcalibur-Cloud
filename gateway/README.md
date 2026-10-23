@@ -22,7 +22,8 @@ The contract is intended to bind a gateway request to an existing AIGC TaskContr
 - `antigravity_handoff.py`: workspace-bound user-assisted task handoff; no desktop, SDK, CLI, or managed-agent invocation.
 - `aigc_contract_bridge.py`: defense-in-depth validation of the existing AIGC runtime v0.18 contract shape and a server-supplied operation allowlist; the authoritative AIGC validator remains upstream.
 - `ledger.py`: SQLite intake/audit ledger with identity-scoped idempotency and owner-scoped reads. It is a single-node development/test primitive, not a production multi-instance database.
-- `http_api.py`: dependency-injected WSGI task-intake and owner-scoped read API. It fails closed without a supplied trusted authenticator and never dispatches external work.
+- `http_api.py`: dependency-injected WSGI task-intake, owner-scoped reads, and authenticated cancellation endpoint. It fails closed without a supplied trusted authenticator and never dispatches external work.
+- `GatewayLedger.cancel_task`: atomic owner-scoped cancellation for pre-execution `REQUESTED`/`AUTHORIZED` tasks, idempotent repeat cancellation, and durable audit outcomes. This is not executor-aware cancellation and must not be treated as cancelling already-dispatched work.
 - `web/index.html`, `web/app.js`, `web/style.css`: responsive mobile prototype for contract review, intake, and owner-scoped task/audit retrieval. It uses same-origin requests, strict CSP, no browser token storage, and no external dispatch; the token field is development/testing only.
 - `test_mobile_ui.py`: static regression checks for viewport/accessibility status, CSP, same-origin requests, no token persistence, and safe text rendering.
 - `test_job_agent.py`: regression tests for URL hygiene, missing qualifications, unknown eligibility facts, deduplication, and non-fabricated application drafts.
