@@ -146,6 +146,9 @@ class GatewayLedger:
                 (task_id, authenticated_subject),
             ).fetchone()
             if row is None:
+                self._audit(db, actor=authenticated_subject, action="TASK_CANCEL",
+                            outcome="DENIED_NOT_FOUND_OR_NOT_OWNED", task_id=task_id,
+                            digest=None, details={"reason_code": "TASK_NOT_FOUND_OR_NOT_OWNED"})
                 db.commit()
                 return None
             current_state = row["state"]
