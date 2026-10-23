@@ -38,7 +38,7 @@ async function githubIdentity(req: Request) {
   if (!runId || !sha) throw new Error("missing immutable workflow identity");
   return {repository,repository_id:repositoryId,repository_owner_id:ownerId,ref,workflow_ref:workflowRef,run_id:runId,run_attempt:String(payload.run_attempt??""),actor:String(payload.actor??""),actor_id:String(payload.actor_id??""),sha,event_name:String(payload.event_name??""),runner_environment:String(payload.runner_environment??""),jti:String(payload.jti??""),kid:String(protectedHeader.kid??"")};
 }
-async function recoverExpired(admin: ReturnType<typeof createClient>) {
+async function recoverExpired(admin: ReturnType<typeof adminClient>) {
   const now=new Date().toISOString();
   // A job that expired before RUNNING is safe to return to the queue.
   if (expiredLeaseDisposition("LEASED") === "QUEUED") {
@@ -55,7 +55,7 @@ async function recoverExpired(admin: ReturnType<typeof createClient>) {
     if (error) throw new Error(`expired RUNNING reconciliation failed: ${error.message}`);
   }
 }
-async function lease(admin: ReturnType<typeof createClient>, ident: Awaited<ReturnType<typeof githubIdentity>>, body: Record<string,unknown>) {
+async function lease(admin: ReturnType<typeof adminClient>, ident: Awaited<ReturnType<typeof githubIdentity>>, body: Record<string,unknown>) {
   await recoverExpired(admin);
   const requested=Array.isArray(body.job_types)?body.job_types.filter((x)=>typeof x==="string") as string[]:[];
   const supported=requested.length?requested:["shell_certification"];
@@ -70,12 +70,12 @@ async function lease(admin: ReturnType<typeof createClient>, ident: Awaited<Retu
   const safeJob={...leased} as Record<string,unknown>;delete safeJob.owner_id;
   return {status:"LEASED",authenticated:true,worker:ident,job:safeJob,revision_payload};
 }
-async function startJob(admin: ReturnType<typeof createClient>, ident: Awaited<ReturnType<typeof githubIdentity>>, body: Record<string,unknown>) {
+async function startJob(admin: ReturnType<typeof adminClient>, ident: Awaited<ReturnType<typeof githubIdentity>>, body: Record<string,unknown>) {
   const id=String(body.job_id??"");if(!id)throw new Error("missing job_id");
   const {data,error}=await admin.from("autohouse_jobs").update({state:"RUNNING",updated_at:new Date().toISOString()}).eq("id",id).eq("state","LEASED").eq("worker_run_id",ident.run_id).eq("worker_repository",ident.repository).select("id,state,attempt,worker_run_id").maybeSingle();
   if(error)throw new Error(error.message);if(!data)throw new Error("job lease ownership mismatch");return {status:"RUNNING",job:data};
 }
-async function finishJob(admin: ReturnType<typeof createClient>, ident: Awaited<ReturnType<typeof githubIdentity>>, body: Record<string,unknown>) {
+async function finishJob(admin: ReturnType<typeof adminClient>, ident: Awaited<ReturnType<typeof githubIdentity>>, body: Record<string,unknown>) {
   const id=String(body.job_id??""),outcome=String(body.outcome??"");if(!id)throw new Error("missing job_id");if(!["SUCCEEDED","FAILED"].includes(outcome))throw new Error("invalid outcome");
   const {data:current,error:currentError}=await admin.from("autohouse_jobs").select("id,owner_id,project_id,project_revision_digest,state,worker_run_id,worker_repository").eq("id",id).maybeSingle();
   if(currentError)throw new Error(currentError.message);if(!current)throw new Error("job not found");if(current.worker_run_id!==ident.run_id||current.worker_repository!==ident.repository)throw new Error("job lease ownership mismatch");if(!["LEASED","RUNNING"].includes(current.state))throw new Error(`job is not finishable from state ${current.state}`);
