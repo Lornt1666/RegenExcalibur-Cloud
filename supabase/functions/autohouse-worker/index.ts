@@ -93,7 +93,13 @@ async function finishJob(admin: ReturnType<typeof adminClient>, ident: Awaited<R
       if(!artifactMatchesExisting(existing,expected))throw new Error("artifact digest already exists with mismatched job or revision binding");
     }else{
       const {error:artifactError}=await admin.from("autohouse_artifacts").insert({owner_id:current.owner_id,project_id:current.project_id,job_id:current.id,revision_digest:current.project_revision_digest,artifact_type:artifactType,artifact_digest:resultDigest,uri,metadata:{worker_repository:ident.repository,worker_run_id:ident.run_id,worker_run_attempt:ident.run_attempt,worker_lease_id:workerLeaseIdentity(ident.run_id,ident.run_attempt),worker_sha:ident.sha,workflow_ref:ident.workflow_ref,identity_verified_by:"GitHub OIDC",content_digest_supplied_by_worker:true}});
-      if(artifactError)throw new Error(`artifact ledger insert failed; job remains nonterminal: ${artifactError.message}`);
+      if(artifactError){
+        // A concurrent finisher may have inserted the same owner/digest after our
+        // first lookup. Re-read and accept only an exact task/revision binding.
+        const {data:concurrent,error:reconcileError}=await admin.from("autohouse_artifacts").select("owner_id,job_id,revision_digest,artifact_digest").eq("owner_id",current.owner_id).eq("artifact_digest",resultDigest).maybeSingle();
+        if(reconcileError)throw new Error(`artifact insert failed (${artifactError.message}) and reconciliation lookup failed: ${reconcileError.message}`);
+        if(!concurrent||!artifactMatchesExisting(concurrent,expected))throw new Error(`artifact ledger insert failed and no exact matching artifact could be reconciled: ${artifactError.message}`);
+      }
     }
   }
   const {data:updated,error:updateError}=await admin.from("autohouse_jobs").update({state:outcome,result_digest:resultDigest,error:outcome==="FAILED"?(body.error??{message:"worker failure"}):null,lease_expires_at:null,updated_at:new Date().toISOString()}).eq("id",id).eq("worker_run_id",workerLeaseIdentity(ident.run_id,ident.run_attempt)).eq("worker_sha",ident.sha).eq("state","RUNNING").gt("lease_expires_at",new Date().toISOString()).select("id,state,result_digest,attempt,worker_run_id,worker_sha,updated_at").single();
