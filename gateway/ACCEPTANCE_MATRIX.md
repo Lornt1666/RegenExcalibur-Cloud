@@ -8,7 +8,7 @@
 | WKR-01 | Worker lifecycle code type-check | PASS | PR #5 head `e30c482db78b0198b37ab6b121bd5e74d384562d`; [CI run 40021030545](https://github.com/Lornt1666/RegenExcalibur-Cloud/actions/runs/40021030545) | Keep PR draft; add database-level concurrency tests |
 | WKR-02 | Worker isolated lifecycle regression suite | PASS | Same exact-head run: 10 passed, 0 failed | Test actual DB state transitions and stale-worker races in isolated staging |
 | WKR-03 | Worker artifact durability and concurrency E2E | BLOCKED | Artifact-first pattern is implemented, but no transactional DB E2E or independent content hashing was run | Add safe staging fixture; retrieve and hash actual artifact content; prove cancellation/expiry races |
-| WKR-04 | Worker deployment parity | BLOCKED | No production deployment or live function version change was made | Reconcile legacy leases, approve deployment, then verify deployed version and smoke tests |
+| WKR-04 | Worker deployment parity | BLOCKED | Live Supabase `autohouse-worker` is ACTIVE version 3, updated 2026-08-22; read-only source inspection confirms it only recovers expired `LEASED` jobs, lacks `RETRYABLE_FAILURE` recovery and artifact reconciliation, and terminally updates jobs without artifact-first persistence. Candidate PR #5 is not deployed. | Reconcile legacy leases, approve deployment, then verify deployed version and smoke tests | Reconcile legacy leases, approve deployment, then verify deployed version and smoke tests |
 | GW-01 | Versioned gateway contract and policy evaluator | PASS | PR #6 head `d4f329a7bcf05ec4783d8bb9884f290ce012f328`; [CI run 40021135632](https://github.com/Lornt1666/RegenExcalibur-Cloud/actions/runs/40021135632); 33 tests passed | Review policy edge cases before integration |
 | GW-02 | AIGC contract bridge | PASS | Same exact-head CI; validates runtime v0.18 shape, ref binding, expiry, budget, action allowlist | Connect to authoritative AIGC validator/runtime; current bridge is defense-in-depth only |
 | GW-03 | Authenticated HTTP API, durable audit, idempotency, approval store | NOT_STARTED | No API server, trusted identity provider, durable approval database, or audit service is implemented in PR #6 | Implement the smallest server-side service using approved identity and persistence |
@@ -43,4 +43,4 @@ See [draft Supabase security review PR #7](https://github.com/Lornt1666/RegenExc
 - Gateway repository base at time of PR #6: `RegenExcalibur-Webpage` / `c22e71ee06380097ddfde1dbabb3679102bb1f18`.
 - Worker remediation PR #5 current candidate: `e30c482db78b0198b37ab6b121bd5e74d384562d`.
 - Gateway contract PR #6 current candidate: `d4f329a7bcf05ec4783d8bb9884f290ce012f328`.
-- Supabase project reference: `wubfqagfkkylqzwswdfs`; no production deployment or mutation performed.
+- Supabase project reference: `wubfqagfkkylqzwswdfs`; live function `autohouse-worker` version 3 remains deployed; no production deployment or mutation performed.
