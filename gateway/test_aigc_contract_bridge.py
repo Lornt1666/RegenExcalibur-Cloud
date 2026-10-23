@@ -7,7 +7,7 @@ from gateway.aigc_contract_bridge import AIGCContractError, validate_aigc_runtim
 def contract():
     return {
         "contract_id": "aigc-001", "objective": "Read-only review",
-        "authorized_scope": "repository:read", "resource_budget": 100,
+        "authorized_scope": "repository:read; idempotent", "resource_budget": 100,
         "permitted_actions": ["repo.read_file"], "evidence_requirements": ["test output"],
         "postconditions": ["no production changes"], "termination_conditions": ["review complete"],
         "retry_max": 1, "rollback_enabled": False, "rollback_compensating_action": "",
@@ -36,6 +36,12 @@ class AIGCBridgeTests(unittest.TestCase):
         value = contract()
         value["expiration"] = (datetime.now(timezone.utc) - timedelta(minutes=1)).isoformat()
         with self.assertRaisesRegex(AIGCContractError, "expired"):
+            validate_aigc_runtime_contract(value, "aigc-001", {"repo.read_file"}, 1000)
+
+    def test_rejects_retry_without_explicit_idempotency_scope(self):
+        value = contract()
+        value["authorized_scope"] = "repository:read"
+        with self.assertRaisesRegex(AIGCContractError, "explicitly declare idempotency"):
             validate_aigc_runtime_contract(value, "aigc-001", {"repo.read_file"}, 1000)
 
     def test_rejects_excessive_resource_budget(self):
