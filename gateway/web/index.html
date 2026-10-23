@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="referrer" content="no-referrer">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self' https:; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'">
   <title>1JGM Governed Gateway</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -15,8 +15,6 @@
   <section aria-labelledby="connection-heading">
     <h2 id="connection-heading">Connection</h2>
     <p class="note">Use only with a trusted HTTPS deployment. The bearer token remains in this page's memory and is not saved to browser storage. A production deployment should obtain tokens from its approved identity provider rather than asking users to paste credentials.</p>
-    <label for="apiBase">Gateway origin / base URL</label>
-    <input id="apiBase" type="url" autocomplete="url" spellcheck="false" placeholder="https://gateway.example">
     <label for="token">Access token (development/testing only)</label>
     <input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Bearer token">
   </section>
