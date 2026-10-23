@@ -17,6 +17,33 @@ export function expiredLeaseDisposition(state: JobState): "QUEUED" | "RETRYABLE_
   return null;
 }
 
+
+export interface WorkerLeaseRecord {
+  worker_run_id?: string | null;
+  worker_repository?: string | null;
+  worker_sha?: string | null;
+  lease_expires_at?: string | null;
+}
+
+export interface WorkerLeaseExpected {
+  run_id: string;
+  run_attempt: string;
+  repository: string;
+  sha: string;
+}
+
+export function workerLeaseIsCurrent(
+  lease: WorkerLeaseRecord,
+  expected: WorkerLeaseExpected,
+  nowMs = Date.now(),
+): boolean {
+  if (lease.worker_run_id !== workerLeaseIdentity(expected.run_id, expected.run_attempt)) return false;
+  if (lease.worker_repository !== expected.repository || lease.worker_sha !== expected.sha) return false;
+  if (!lease.lease_expires_at) return false;
+  const expiry = Date.parse(lease.lease_expires_at);
+  return Number.isFinite(expiry) && expiry > nowMs;
+}
+
 export interface ArtifactBinding {
   owner_id: string;
   job_id: string;
