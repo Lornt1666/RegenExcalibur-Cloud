@@ -13,8 +13,10 @@ The contract is intended to bind a gateway request to an existing AIGC TaskContr
 - `task_contract.schema.json`: versioned JSON Schema.
 - `task_contract.py`: server-side envelope validation and policy checks, including operation-to-target binding and credential-free HTTPS job URLs.
 - `ledger.py`: transactional SQLite task intake, identity-scoped idempotency, and durable allow/denial audit events for local/single-node integration; not a production multi-instance database.
+- `service.py`: application service that validates and authorizes using trusted server-supplied identity, persists denials, and marks accepted intake as server-authorized; it never dispatches work and is not an HTTP server.
 - `test_task_contract.py`: authorization boundary regression tests, including target mismatch and unsafe job URLs.
 - `test_ledger.py`: persistence, idempotency replay/conflict, and durable denial-event regression tests.
+- `test_service.py`: server-controlled task-state, trusted-identity, scope-denial, and audit tests.
 - `job_agent.py`: deterministic listing normalization, deduplication, evidence-bound skills/eligibility assessment, and truthful application-draft preparation from supplied verified profile facts.
 - `cloud_shell_handoff.py`: typed read-only diagnostic handoff and receipt parser; no Cloud Shell API call or command execution.
 - `antigravity_handoff.py`: workspace-bound user-assisted task handoff; no desktop, SDK, CLI, or managed-agent invocation.
@@ -27,7 +29,7 @@ The contract is intended to bind a gateway request to an existing AIGC TaskContr
 
 ## Critical integration requirements
 
-1. Authenticate the caller in a trusted server component. Never populate `identity` from untrusted request JSON.
+1. Authenticate the caller in a trusted server component. Never populate `identity` from untrusted request JSON. `GatewayIntakeService` expects this trusted identity as an input; no authentication middleware is included yet.
 2. Bind repository and project allowlists to verified identity claims and server-side configuration.
 3. Implement `approval_lookup` against a durable approval store. Bind approvals to task ID, immutable contract digest, approver identity, expiry, and the exact proposed external action.
 4. Persist idempotency keys with a uniqueness constraint and atomic task creation; the pure validator alone does not prevent replay.
