@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 import json
 import sqlite3
+from contextlib import closing
 from typing import Any, Mapping
 
 from gateway.task_contract import contract_digest
@@ -25,7 +26,7 @@ def _utc_now() -> str:
 class GatewayLedger:
     def __init__(self, database_path: str):
         self.database_path = database_path
-        with self._connect() as db:
+        with closing(self._connect()) as db:
             db.executescript("""
                 CREATE TABLE IF NOT EXISTS gateway_tasks (
                     task_id TEXT PRIMARY KEY,
