@@ -1,4 +1,4 @@
-import { artifactMatchesExisting, expiredLeaseDisposition, isFinishableState } from "./lifecycle.ts";
+import { artifactMatchesExisting, expiredLeaseDisposition, isFinishableState, workerLeaseIdentity } from "./lifecycle.ts";
 
 function assertEquals<T>(actual: T, expected: T, message: string): void {
   if (actual !== expected) throw new Error(`${message}: expected ${String(expected)}, got ${String(actual)}`);
@@ -35,4 +35,15 @@ Deno.test("only RUNNING jobs may be completed by a worker", () => {
   assertEquals(isFinishableState("LEASED"), false, "LEASED cannot finish");
   assertEquals(isFinishableState("RETRYABLE_FAILURE"), false, "reconciliation-required jobs cannot finish");
   assertEquals(isFinishableState("CANCELLED"), false, "cancelled jobs cannot finish");
+});
+
+Deno.test("worker lease identity binds the GitHub run attempt", () => {
+  assertEquals(workerLeaseIdentity("12345", "1"), "12345:1", "first attempt");
+  assertEquals(workerLeaseIdentity("12345", "2"), "12345:2", "rerun is distinct");
+});
+
+Deno.test("worker lease identity rejects malformed run identifiers", () => {
+  let rejected = false;
+  try { workerLeaseIdentity("123x", "1"); } catch { rejected = true; }
+  assertEquals(rejected, true, "invalid run ID");
 });
