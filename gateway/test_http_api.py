@@ -115,5 +115,18 @@ class GatewayHTTPAPITests(unittest.TestCase):
         self.assertFalse(body["dispatch_performed"])
 
 
+
+    def test_persistence_failure_is_denied_and_audited(self):
+        def fail_create(*_args, **_kwargs):
+            raise RuntimeError("database unavailable")
+        self.ledger.create_task = fail_create
+        status, _, body = invoke(self.app, "POST", "/v1/tasks", sample())
+        self.assertEqual(status, "503 Service Unavailable")
+        self.assertEqual(body["error"], "task_not_accepted")
+        self.assertFalse(body["dispatch_performed"])
+        events = self.ledger.audit_events("user-1")
+        self.assertEqual(events[-1]["outcome"], "DENIED")
+        self.assertIn("PERSISTENCE_REJECTED", events[-1]["details_json"])
+
 if __name__ == "__main__":
     unittest.main()
