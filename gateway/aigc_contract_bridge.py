@@ -45,6 +45,8 @@ def validate_aigc_runtime_contract(
         raise AIGCContractError("AIGC retry_max must be between 0 and 5")
     if type(contract["rollback_enabled"]) is not bool:
         raise AIGCContractError("rollback_enabled must be boolean")
+    if not isinstance(contract["rollback_compensating_action"], str):
+        raise AIGCContractError("rollback_compensating_action must be a string")
     if contract["rollback_enabled"] and not contract["rollback_compensating_action"].strip():
         raise AIGCContractError("rollback requires a compensating action")
     for field in ("permitted_actions", "evidence_requirements", "postconditions", "termination_conditions"):
