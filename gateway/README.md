@@ -12,7 +12,10 @@ The contract is intended to bind a gateway request to an existing AIGC TaskContr
 - `task_contract.py`: server-side envelope validation and policy checks.
 - `test_task_contract.py`: authorization boundary regression tests.
 - `job_agent.py`: deterministic listing normalization, deduplication, and evidence-bound skills/eligibility assessment.
+- `cloud_shell_handoff.py`: typed read-only diagnostic handoff and receipt parser; no Cloud Shell API call or command execution.
+- `antigravity_handoff.py`: workspace-bound user-assisted task handoff; no desktop, SDK, CLI, or managed-agent invocation.
 - `test_job_agent.py`: regression tests for URL hygiene, missing qualifications, unknown eligibility facts, and deduplication.
+- `test_cloud_shell_handoff.py` and `test_antigravity_handoff.py`: regression tests for typed allowlists, explicit scope, and honest user-assisted status.
 
 ## Critical integration requirements
 
@@ -42,10 +45,15 @@ The contract is intended to bind a gateway request to an existing AIGC TaskContr
 | Job application drafting | Not implemented | Requires approved profile-data source and document generation workflow |
 | Job submission | Not implemented | No external submission connector; no submissions performed |
 | Mobile gateway / ChatGPT connector | Not implemented | No authenticated API/UI in this branch |
-| Cloud Shell adapter | Not implemented | No Cloud Shell execution has been performed by this code |
-| Antigravity adapter | Not implemented | Only typed handoff validation; no automated UI control |
+| Cloud Shell handoff | Implemented, CI pending | Typed read-only command list and user-supplied receipt verifier; no Cloud Shell execution has been performed by this code |
+| Antigravity handoff | Implemented, CI pending | Workspace-bound handoff package; no automated desktop/SDK/managed-agent call has been made |
 | AIGC integration | Not implemented | Contract reference exists; runtime validator/dispatcher integration remains |
 | Production deployment | Not authorized or performed | Draft PR only |
+
+## Official integration research
+
+- The [Cloud Shell REST reference](https://docs.cloud.google.com/shell/docs/reference/rest) documents environment start/get/authorize and SSH-key management, but no general arbitrary-command execution method. This branch therefore implements a user-assisted diagnostic handoff instead of claiming API command dispatch.
+- The [Antigravity SDK](https://www.antigravity.google/docs/sdk/overview) is a supported Python runtime; the [managed Antigravity agent API](https://ai.google.dev/gemini-api/docs/antigravity-agent) supports remote sandbox interactions. Neither has been invoked from this repository. Select and configure one surface with explicit tool restrictions and credentials before implementing automated dispatch.
 
 ## Security notes
 
