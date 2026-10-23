@@ -58,6 +58,7 @@ async function recoverExpired(admin: ReturnType<typeof adminClient>) {
 async function lease(admin: ReturnType<typeof adminClient>, ident: Awaited<ReturnType<typeof githubIdentity>>, body: Record<string,unknown>) {
   await recoverExpired(admin);
   const requested=Array.isArray(body.job_types)?body.job_types.filter((x)=>typeof x==="string") as string[]:[];
+  if(requested.some((x)=>x!=="shell_certification"))throw new Error("unsupported job type requested");
   const supported=requested.length?requested:["shell_certification"];
   const {data:candidates,error:selectError}=await admin.from("autohouse_jobs").select("id,owner_id,project_id,project_revision_digest,job_type,input_digest,idempotency_key,state,attempt,created_at").eq("state","QUEUED").in("job_type",supported).order("created_at",{ascending:true}).limit(1);
   if(selectError) throw new Error(selectError.message); const job=candidates?.[0];
