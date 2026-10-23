@@ -1,4 +1,4 @@
-import { artifactMatchesExisting, expiredLeaseDisposition, isFinishableState, workerLeaseIdentity } from "./lifecycle.ts";
+import { artifactMatchesExisting, expiredLeaseDisposition, isFinishableState, workerLeaseIdentity, workerLeaseIsCurrent } from "./lifecycle.ts";
 
 function assertEquals<T>(actual: T, expected: T, message: string): void {
   if (actual !== expected) throw new Error(`${message}: expected ${String(expected)}, got ${String(actual)}`);
@@ -46,4 +46,13 @@ Deno.test("worker lease identity rejects malformed run identifiers", () => {
   let rejected = false;
   try { workerLeaseIdentity("123x", "1"); } catch { rejected = true; }
   assertEquals(rejected, true, "invalid run ID");
+});
+
+Deno.test("worker lease rejects stale attempt, wrong SHA, and expired lease", () => {
+  const expected = { run_id: "12345", run_attempt: "2", repository: "Lornt1666/RegenExcalibur-Cloud", sha: "abc123" };
+  const lease = { worker_run_id: "12345:2", worker_repository: expected.repository, worker_sha: expected.sha, lease_expires_at: "2030-01-01T00:00:00Z" };
+  assertEquals(workerLeaseIsCurrent(lease, expected, Date.parse("2029-01-01T00:00:00Z")), true, "current lease");
+  assertEquals(workerLeaseIsCurrent(lease, {...expected, run_attempt: "1"}, Date.parse("2029-01-01T00:00:00Z")), false, "old workflow attempt");
+  assertEquals(workerLeaseIsCurrent(lease, {...expected, sha: "different"}, Date.parse("2029-01-01T00:00:00Z")), false, "wrong commit SHA");
+  assertEquals(workerLeaseIsCurrent(lease, expected, Date.parse("2031-01-01T00:00:00Z")), false, "expired lease");
 });
