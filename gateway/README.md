@@ -4,7 +4,7 @@
 
 The current evidence-backed acceptance snapshot is in [ACCEPTANCE_MATRIX.md](ACCEPTANCE_MATRIX.md).
 
-This branch now includes a **non-dispatching WSGI intake API with injected authentication**, but no production identity verifier, deployment, mobile UI, shared audit/idempotency store, provider execution, or application submission. The API is not production-ready until the real identity verifier and shared persistence are integrated and tested.
+This branch now includes a **non-dispatching WSGI intake API with injected authentication**, but no production identity verifier, deployment, shared production audit/idempotency store, provider execution, or application submission. A responsive static mobile UI prototype exists under `gateway/web/`; it is not yet verified on a real iPhone or connected to a production identity provider. The API is not production-ready until the real identity verifier and shared persistence are integrated and tested.
 
 The contract is intended to bind a gateway request to an existing AIGC TaskContract through `aigc_contract_ref`. The existing AIGC contract and governance authority remain authoritative; this envelope does not replace them.
 
@@ -23,6 +23,8 @@ The contract is intended to bind a gateway request to an existing AIGC TaskContr
 - `aigc_contract_bridge.py`: defense-in-depth validation of the existing AIGC runtime v0.18 contract shape and a server-supplied operation allowlist; the authoritative AIGC validator remains upstream.
 - `ledger.py`: SQLite intake/audit ledger with identity-scoped idempotency and owner-scoped reads. It is a single-node development/test primitive, not a production multi-instance database.
 - `http_api.py`: dependency-injected WSGI task-intake and owner-scoped read API. It fails closed without a supplied trusted authenticator and never dispatches external work.
+- `web/index.html`, `web/app.js`, `web/style.css`: responsive mobile prototype for contract review, intake, and owner-scoped task/audit retrieval. It uses same-origin requests, strict CSP, no browser token storage, and no external dispatch; the token field is development/testing only.
+- `test_mobile_ui.py`: static regression checks for viewport/accessibility status, CSP, same-origin requests, no token persistence, and safe text rendering.
 - `test_job_agent.py`: regression tests for URL hygiene, missing qualifications, unknown eligibility facts, deduplication, and non-fabricated application drafts.
 - `test_cloud_shell_handoff.py` and `test_antigravity_handoff.py`: regression tests for typed allowlists, explicit scope, and honest user-assisted status.
 - `test_aigc_contract_bridge.py`: regression tests for contract reference binding, expiry, resource budget, and allowed actions.
@@ -56,7 +58,7 @@ The contract is intended to bind a gateway request to an existing AIGC TaskContr
 | Factual eligibility assessment | Implemented, CI pending | Only supplied verified profile facts are considered |
 | Job application drafting | Partial, CI pending | Produces a review-only draft from supplied verified facts; profile source and document workflow are not integrated |
 | Job submission | Not implemented | No external submission connector; no submissions performed |
-| Mobile gateway / ChatGPT connector | Not implemented | No authenticated API/UI in this branch |
+| Mobile gateway / ChatGPT connector | Not implemented | A static UI prototype and injected-auth WSGI API exist, but no production identity provider, deployment, or direct ChatGPT connector is configured |
 | Cloud Shell handoff | Implemented, CI pending | Typed read-only command list and user-supplied receipt verifier; no Cloud Shell execution has been performed by this code |
 | Antigravity handoff | Implemented, CI pending | Workspace-bound handoff package; no automated desktop/SDK/managed-agent call has been made |
 | AIGC contract bridge | Partial, CI pending | Defense-in-depth shape/allowlist check; no live AIGC validator call or dispatch |
