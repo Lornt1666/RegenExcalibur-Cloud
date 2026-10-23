@@ -49,6 +49,30 @@ class GatewayLedgerTests(unittest.TestCase):
         self.assertEqual(events[0]["outcome"], "DENIED")
         self.assertIn("INITIATOR_MISMATCH", events[0]["details_json"])
 
+    def test_owner_can_cancel_pending_task_and_repeat_idempotently(self):
+        self.ledger.create_task(sample(), "user-1")
+        first = self.ledger.cancel_task("task-001", "user-1")
+        self.assertTrue(first["cancelled"])
+        self.assertEqual(first["state"], "CANCELLED")
+        stored = self.ledger.get_task("task-001", "user-1")
+        self.assertEqual(stored["state"], "CANCELLED")
+        self.assertEqual(__import__("json").loads(stored["contract_json"])["state"], "CANCELLED")
+        replay = self.ledger.cancel_task("task-001", "user-1")
+        self.assertTrue(replay["already_cancelled"])
+        outcomes = [e["outcome"] for e in self.ledger.audit_events("user-1", "task-001")]
+        self.assertIn("CANCELLED", outcomes)
+        self.assertIn("IDEMPOTENT_CANCEL", outcomes)
+
+    def test_cancellation_denial_for_missing_or_other_owner_is_audited_without_disclosure(self):
+        self.ledger.create_task(sample(), "user-1")
+        self.assertIsNone(self.ledger.cancel_task("task-001", "user-2"))
+        self.assertIsNone(self.ledger.cancel_task("unknown-task", "user-2"))
+        events = self.ledger.audit_events("user-2")
+        self.assertEqual(len(events), 2)
+        self.assertTrue(all(e["action"] == "TASK_CANCEL" for e in events))
+        self.assertTrue(all(e["outcome"] == "DENIED_NOT_FOUND_OR_NOT_OWNED" for e in events))
+        self.assertEqual(self.ledger.get_task("task-001", "user-1")["state"], "REQUESTED")
+
     def test_denial_event_does_not_store_raw_request(self):
         self.ledger.record_denial(actor="user-1", action="job.submit_application",
                                   reason_code="APPROVAL_MISSING", task_id="task-001")
