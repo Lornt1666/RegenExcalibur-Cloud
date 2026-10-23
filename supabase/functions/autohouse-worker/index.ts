@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { createRemoteJWKSet, jwtVerify } from "npm:jose@6.1.0";
-import { artifactMatchesExisting, expiredLeaseDisposition, isFinishableState, workerLeaseIdentity } from "./lifecycle.ts";
+import { artifactMatchesExisting, expiredLeaseDisposition, isFinishableState, workerLeaseIdentity, workerLeaseIsCurrent } from "./lifecycle.ts";
 
 const TRUTH = "SCHEMATIC — NOT FOR CONSTRUCTION — UNSEALED — PROFESSIONAL / AHJ REVIEW REQUIRED.";
 const VERSION = "v441";
@@ -80,7 +80,7 @@ async function finishJob(admin: ReturnType<typeof adminClient>, ident: Awaited<R
   const id=String(body.job_id??""),outcome=String(body.outcome??"");if(!id)throw new Error("missing job_id");if(!["SUCCEEDED","FAILED"].includes(outcome))throw new Error("invalid outcome");
   const now=new Date();
   const {data:current,error:currentError}=await admin.from("autohouse_jobs").select("id,owner_id,project_id,project_revision_digest,state,worker_run_id,worker_repository,worker_sha,lease_expires_at").eq("id",id).maybeSingle();
-  if(currentError)throw new Error(currentError.message);if(!current)throw new Error("job not found");if(current.worker_run_id!==workerLeaseIdentity(ident.run_id,ident.run_attempt)||current.worker_repository!==ident.repository||current.worker_sha!==ident.sha)throw new Error("job lease ownership mismatch");if(!isFinishableState(current.state))throw new Error(`job is not finishable from state ${current.state}`);if(!current.lease_expires_at||new Date(current.lease_expires_at).getTime()<=now.getTime())throw new Error("worker lease expired; reconcile the attempt before completion");
+  if(currentError)throw new Error(currentError.message);if(!current)throw new Error("job not found");if(!workerLeaseIsCurrent(current,{run_id:ident.run_id,run_attempt:ident.run_attempt,repository:ident.repository,sha:ident.sha},now.getTime()))throw new Error("worker lease ownership or expiry mismatch; reconcile the attempt before completion");if(!isFinishableState(current.state))throw new Error(`job is not finishable from state ${current.state}`);
   const resultDigest=typeof body.result_digest==="string"?body.result_digest:null;if(outcome==="SUCCEEDED"&&!resultDigest)throw new Error("successful job requires result_digest");
   // Stage the artifact before the terminal SUCCEEDED transition. If the job update
   // fails, a retry can reconcile the same owner/digest/job tuple idempotently.
