@@ -11,11 +11,11 @@ The contract is intended to bind a gateway request to an existing AIGC TaskContr
 - `task_contract.schema.json`: versioned JSON Schema.
 - `task_contract.py`: server-side envelope validation and policy checks.
 - `test_task_contract.py`: authorization boundary regression tests.
-- `job_agent.py`: deterministic listing normalization, deduplication, and evidence-bound skills/eligibility assessment.
+- `job_agent.py`: deterministic listing normalization, deduplication, evidence-bound skills/eligibility assessment, and truthful application-draft preparation from supplied verified profile facts.
 - `cloud_shell_handoff.py`: typed read-only diagnostic handoff and receipt parser; no Cloud Shell API call or command execution.
 - `antigravity_handoff.py`: workspace-bound user-assisted task handoff; no desktop, SDK, CLI, or managed-agent invocation.
 - `aigc_contract_bridge.py`: defense-in-depth validation of the existing AIGC runtime v0.18 contract shape and a server-supplied operation allowlist; the authoritative AIGC validator remains upstream.
-- `test_job_agent.py`: regression tests for URL hygiene, missing qualifications, unknown eligibility facts, and deduplication.
+- `test_job_agent.py`: regression tests for URL hygiene, missing qualifications, unknown eligibility facts, deduplication, and non-fabricated application drafts.
 - `test_cloud_shell_handoff.py` and `test_antigravity_handoff.py`: regression tests for typed allowlists, explicit scope, and honest user-assisted status.
 - `test_aigc_contract_bridge.py`: regression tests for contract reference binding, expiry, resource budget, and allowed actions.
 
@@ -44,7 +44,7 @@ The contract is intended to bind a gateway request to an existing AIGC TaskContr
 | Durable audit ledger | Not implemented | Must be integrated before any dispatch |
 | Job listing normalization and deduplication | Implemented, CI pending | Pure functions and tests; no source connectors |
 | Factual eligibility assessment | Implemented, CI pending | Only supplied verified profile facts are considered |
-| Job application drafting | Not implemented | Requires approved profile-data source and document generation workflow |
+| Job application drafting | Partial, CI pending | Produces a review-only draft from supplied verified facts; profile source and document workflow are not integrated |
 | Job submission | Not implemented | No external submission connector; no submissions performed |
 | Mobile gateway / ChatGPT connector | Not implemented | No authenticated API/UI in this branch |
 | Cloud Shell handoff | Implemented, CI pending | Typed read-only command list and user-supplied receipt verifier; no Cloud Shell execution has been performed by this code |
