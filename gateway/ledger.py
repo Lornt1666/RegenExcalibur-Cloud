@@ -135,6 +135,55 @@ class GatewayLedger:
         assert result is not None
         return result
 
+    def cancel_task(self, task_id: str, authenticated_subject: str) -> dict[str, Any] | None:
+        """Atomically cancel an owned task before execution; this prototype never dispatches work."""
+        if not isinstance(authenticated_subject, str) or not authenticated_subject.strip():
+            raise ValueError("authenticated_subject is required")
+        with closing(self._connect()) as db:
+            db.execute("BEGIN IMMEDIATE")
+            row = db.execute(
+                "SELECT * FROM gateway_tasks WHERE task_id=? AND initiated_by=?",
+                (task_id, authenticated_subject),
+            ).fetchone()
+            if row is None:
+                db.commit()
+                return None
+            current_state = row["state"]
+            if current_state == "CANCELLED":
+                self._audit(db, actor=authenticated_subject, action="TASK_CANCEL",
+                            outcome="IDEMPOTENT_CANCEL", task_id=task_id,
+                            digest=row["contract_digest"], details={"state": current_state})
+                db.commit()
+                return {"task_id": task_id, "state": current_state,
+                        "cancelled": False, "already_cancelled": True}
+            if current_state not in {"REQUESTED", "AUTHORIZED"}:
+                self._audit(db, actor=authenticated_subject, action="TASK_CANCEL",
+                            outcome="DENIED_NOT_CANCELLABLE", task_id=task_id,
+                            digest=row["contract_digest"], details={"state": current_state})
+                db.commit()
+                return {"task_id": task_id, "state": current_state,
+                        "cancelled": False, "already_cancelled": False}
+            contract = json.loads(row["contract_json"])
+            contract["state"] = "CANCELLED"
+            now = _utc_now()
+            updated = db.execute(
+                """UPDATE gateway_tasks
+                   SET state='CANCELLED', contract_json=?, updated_at=?
+                   WHERE task_id=? AND initiated_by=? AND state=?""",
+                (json.dumps(contract, sort_keys=True, separators=(",", ":"), ensure_ascii=False),
+                 now, task_id, authenticated_subject, current_state),
+            )
+            if updated.rowcount != 1:
+                db.rollback()
+                raise RuntimeError("task cancellation lost its expected-state race")
+            self._audit(db, actor=authenticated_subject, action="TASK_CANCEL",
+                        outcome="CANCELLED", task_id=task_id, digest=row["contract_digest"],
+                        details={"from_state": current_state, "to_state": "CANCELLED",
+                                 "dispatch": "not_performed"})
+            db.commit()
+            return {"task_id": task_id, "state": "CANCELLED",
+                    "cancelled": True, "already_cancelled": False}
+
     def record_denial(self, *, actor: str, action: str, reason_code: str,
                       task_id: str | None = None, digest: str | None = None) -> None:
         """Durably record a policy denial without storing raw secrets or request bodies."""
