@@ -29,3 +29,15 @@ The live version retrieved from Supabase does not contain the candidate's `run_a
 6. After authorized deployment, verify the function version/source fingerprint, run non-destructive OIDC self-test and access-negative tests, inspect logs, and reconcile any legacy leases written with only `run_id`.
 
 No production deployment or live database mutation was performed as part of this review.
+
+## Live database schema check (read-only, 2026-10-23)
+
+The connected Supabase catalog was queried read-only after this candidate was reviewed:
+
+- `public.autohouse_jobs_state_check` explicitly permits `QUEUED`, `LEASED`, `RUNNING`, `SUCCEEDED`, `RETRYABLE_FAILURE`, `FAILED`, and `CANCELLED`. The candidate's `RETRYABLE_FAILURE` recovery value is therefore compatible with the current live CHECK constraint.
+- `public.autohouse_artifacts` has unique index `autohouse_artifacts_owner_id_artifact_digest_key` on `(owner_id, artifact_digest)`.
+- `public.autohouse_jobs` has unique index `autohouse_jobs_owner_id_idempotency_key_key` on `(owner_id, idempotency_key)`.
+- The artifact unique key is owner/digest scoped, not job/revision scoped. The candidate must continue to compare the stored `job_id` and `revision_digest` before reusing an existing digest. The existing unique index prevents two concurrent inserts for the same owner/digest, but a race can still yield a unique-violation error to one caller; that caller must reconcile by re-reading and verifying the exact binding rather than treating the conflict as success.
+- This was a catalog inspection only. No schema, data, permissions, function version, or production resource was modified.
+
+This schema evidence removes the specific concern that `RETRYABLE_FAILURE` is invalid in the current live check constraint. It does not prove concurrency correctness or deployment readiness; those still require isolated database-level race tests and a non-production deployment test.
