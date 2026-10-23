@@ -8,7 +8,7 @@ def sample(operation="repo.read_file"):
         "contract_version": "1JGM-GATEWAY-TASK-1.0", "task_id": "task-001",
         "idempotency_key": "idem-001", "initiated_by": "user-1",
         "session_ref": "session-1", "aigc_contract_ref": "aigc-task-001",
-        "target": {"kind": "repository", "repository": "Lornt1666/AIGC", "branch": "main"},
+        "target": {"kind": "job_platform"} if operation in {"job.prepare_application", "job.submit_application", "job.search"} else {"kind": "repository", "repository": "Lornt1666/AIGC", "branch": "main"},
         "operation": operation,
         "arguments": {"path": "README.md"} if operation == "repo.read_file" else {"job_url": "https://jobs.example/1", "application_reference": "application-1"},
         "resource_scope": ["repository:read"],
@@ -27,6 +27,21 @@ class TaskContractTests(unittest.TestCase):
 
     def test_authorizes_scoped_read_only_repository_operation(self):
         self.assertEqual(authorize_task(sample(), self.identity(), lambda _: None), "ALLOW")
+
+    def test_rejects_target_kind_mismatch(self):
+        contract = sample()
+        contract["target"] = {"kind": "cloud_shell", "project_id": "approved-project"}
+        with self.assertRaisesRegex(ContractError, "target kind does not match"):
+            validate_contract(contract)
+
+    def test_rejects_insecure_or_credentialed_job_urls(self):
+        contract = sample("job.submit_application")
+        contract["arguments"]["job_url"] = "http://jobs.example/1"
+        with self.assertRaisesRegex(ContractError, "credential-free HTTPS"):
+            validate_contract(contract)
+        contract["arguments"]["job_url"] = "https://user:secret@jobs.example/1"
+        with self.assertRaisesRegex(ContractError, "credential-free HTTPS"):
+            validate_contract(contract)
 
     def test_rejects_unknown_top_level_fields(self):
         contract = sample()
