@@ -38,9 +38,11 @@ def normalize_listing(raw: Mapping[str, Any], retrieved_at: str) -> dict[str, An
     url = canonical_job_url(raw.get("source_url"))
     retrieved = _nonempty_text(retrieved_at, "retrieved_at")
     try:
-        datetime.fromisoformat(retrieved.replace("Z", "+00:00"))
+        parsed_retrieved = datetime.fromisoformat(retrieved.replace("Z", "+00:00"))
     except ValueError as exc:
         raise JobDataError("retrieved_at must be ISO-8601") from exc
+    if parsed_retrieved.tzinfo is None:
+        raise JobDataError("retrieved_at must include a timezone")
     requirements = raw.get("required_skills", [])
     preferred = raw.get("preferred_skills", [])
     if not isinstance(requirements, list) or any(not isinstance(x, str) or not x.strip() for x in requirements):
@@ -48,7 +50,7 @@ def normalize_listing(raw: Mapping[str, Any], retrieved_at: str) -> dict[str, An
     if not isinstance(preferred, list) or any(not isinstance(x, str) or not x.strip() for x in preferred):
         raise JobDataError("preferred_skills must be a list of non-empty strings")
     remote = raw.get("remote_eligibility", "unknown")
-    if remote not in {"remote", "hybrid", "onsite", "unknown"}:
+    if not isinstance(remote, str) or remote not in {"remote", "hybrid", "onsite", "unknown"}:
         raise JobDataError("remote_eligibility is invalid")
     listing_id = sha256(f"{employer.casefold()}|{title.casefold()}|{url}".encode()).hexdigest()
     return {
