@@ -1,5 +1,9 @@
 export type JobState = "QUEUED" | "LEASED" | "RUNNING" | "SUCCEEDED" | "RETRYABLE_FAILURE" | "FAILED" | "CANCELLED";
 
+export function isFinishableState(state: JobState): boolean {
+  return state === "RUNNING";
+}
+
 export function expiredLeaseDisposition(state: JobState): "QUEUED" | "RETRYABLE_FAILURE" | null {
   if (state === "LEASED") return "QUEUED";
   if (state === "RUNNING") return "RETRYABLE_FAILURE";
