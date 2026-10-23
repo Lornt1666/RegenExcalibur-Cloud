@@ -106,6 +106,48 @@ class GatewayHTTPAPITests(unittest.TestCase):
         self.assertEqual(status, "404 Not Found")
         self.assertEqual(body["error"], "task_not_found")
 
+    def test_owner_can_cancel_pre_execution_task_and_repeat_idempotently(self):
+        status, _, _ = invoke(self.app, "POST", "/v1/tasks", sample())
+        self.assertEqual(status, "201 Created")
+        status, _, body = invoke(self.app, "POST", "/v1/tasks/task-001/cancel")
+        self.assertEqual(status, "200 OK")
+        self.assertTrue(body["cancelled"])
+        self.assertEqual(body["state"], "CANCELLED")
+        stored = self.ledger.get_task("task-001", "user-1")
+        self.assertEqual(stored["state"], "CANCELLED")
+        self.assertEqual(json.loads(stored["contract_json"])["state"], "CANCELLED")
+        self.assertFalse(body["dispatch_performed"])
+        events = self.ledger.audit_events("user-1", "task-001")
+        self.assertTrue(any(e["action"] == "TASK_CANCEL" and e["outcome"] == "CANCELLED" for e in events))
+        status, _, replay = invoke(self.app, "POST", "/v1/tasks/task-001/cancel")
+        self.assertEqual(status, "200 OK")
+        self.assertTrue(replay["already_cancelled"])
+        self.assertFalse(replay["cancelled"])
+
+    def test_cancellation_is_owner_scoped_and_does_not_disclose_other_users_tasks(self):
+        invoke(self.app, "POST", "/v1/tasks", sample())
+        status, _, body = invoke(self.app, "POST", "/v1/tasks/task-001/cancel", auth="Bearer user2")
+        self.assertEqual(status, "404 Not Found")
+        self.assertEqual(body["error"], "task_not_found")
+        self.assertEqual(self.ledger.get_task("task-001", "user-1")["state"], "AUTHORIZED")
+
+    def test_cancellation_rejects_non_cancellable_terminal_state(self):
+        invoke(self.app, "POST", "/v1/tasks", sample())
+        with self.ledger._connect() as db:
+            contract = json.loads(db.execute(
+                "SELECT contract_json FROM gateway_tasks WHERE task_id=?", ("task-001",)
+            ).fetchone()["contract_json"])
+            contract["state"] = "REJECTED"
+            db.execute("UPDATE gateway_tasks SET state='REJECTED', contract_json=? WHERE task_id=?",
+                       (json.dumps(contract), "task-001"))
+        status, _, body = invoke(self.app, "POST", "/v1/tasks/task-001/cancel")
+        self.assertEqual(status, "409 Conflict")
+        self.assertEqual(body["error"], "task_not_cancellable")
+        self.assertEqual(body["state"], "REJECTED")
+        self.assertEqual(self.ledger.get_task("task-001", "user-1")["state"], "REJECTED")
+        self.assertTrue(any(e["outcome"] == "DENIED_NOT_CANCELLABLE"
+                            for e in self.ledger.audit_events("user-1", "task-001")))
+
     def test_denial_fails_closed_if_audit_storage_is_unavailable(self):
         def fail_audit(**_kwargs):
             raise OSError("disk unavailable")
