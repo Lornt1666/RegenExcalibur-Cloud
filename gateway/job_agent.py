@@ -126,3 +126,65 @@ def deduplicate_listings(listings: list[Mapping[str, Any]]) -> list[Mapping[str,
         if current is None or str(item.get("retrieved_at", "")) > str(current.get("retrieved_at", "")):
             chosen[key] = item
     return list(chosen.values())
+
+
+def prepare_application_packet(listing: Mapping[str, Any], verified_profile: Mapping[str, Any]) -> dict[str, Any]:
+    """Create a truthful draft packet from supplied verified facts; never submit it."""
+    if not isinstance(listing, Mapping) or not isinstance(verified_profile, Mapping):
+        raise JobDataError("listing and verified_profile must be objects")
+    employer = _nonempty_text(listing.get("employer"), "employer")
+    title = _nonempty_text(listing.get("title"), "title")
+    source_url = canonical_job_url(listing.get("source_url"))
+    name = verified_profile.get("name")
+    if name is not None and (not isinstance(name, str) or not name.strip()):
+        raise JobDataError("profile name must be a non-empty string when supplied")
+    skills = verified_profile.get("skills", [])
+    experience = verified_profile.get("experience", [])
+    education = verified_profile.get("education", [])
+    certifications = verified_profile.get("certifications", [])
+    for field, values in (("skills", skills), ("experience", experience), ("education", education), ("certifications", certifications)):
+        if not isinstance(values, list):
+            raise JobDataError(f"profile {field} must be a list")
+    if any(not isinstance(x, str) or not x.strip() for x in skills + education + certifications):
+        raise JobDataError("profile skills, education and certifications must contain non-empty strings")
+    if any(not isinstance(item, Mapping) for item in experience):
+        raise JobDataError("profile experience entries must be objects")
+    experience_lines = []
+    for item in experience:
+        role = _nonempty_text(item.get("title"), "experience.title")
+        employer_name = _nonempty_text(item.get("employer"), "experience.employer")
+        summary = _nonempty_text(item.get("summary"), "experience.summary")
+        experience_lines.append(f"{role} at {employer_name}: {summary}")
+    profile_facts = []
+    profile_facts.extend([f"Skill: {skill}" for skill in skills])
+    profile_facts.extend([f"Experience: {line}" for line in experience_lines])
+    profile_facts.extend([f"Education: {item}" for item in education])
+    profile_facts.extend([f"Certification: {item}" for item in certifications])
+    greeting = f"Dear Hiring Team at {employer},"
+    opener = f"I am applying for the {title} role. My application is based on the qualifications listed below."
+    if profile_facts:
+        qualifications = "\n".join(f"- {fact}" for fact in profile_facts)
+    else:
+        qualifications = "[Add verified skills, experience, education, or certifications before sending.]"
+    closing = "Thank you for considering my application. I would welcome the opportunity to discuss my fit for the role."
+    cover_letter = "\n\n".join([greeting, opener, "Relevant qualifications:\n" + qualifications, closing])
+    required_documents = listing.get("required_documents", [])
+    if not isinstance(required_documents, list) or any(not isinstance(x, str) or not x.strip() for x in required_documents):
+        raise JobDataError("required_documents must be a list of non-empty strings")
+    return {
+        "status": "DRAFT_FOR_REVIEW",
+        "employer": employer,
+        "role": title,
+        "source_url": source_url,
+        "candidate_name": name.strip() if isinstance(name, str) else None,
+        "qualification_facts_used": profile_facts,
+        "cover_letter_draft": cover_letter,
+        "required_documents": list(required_documents),
+        "missing_profile_sections": [
+            field for field, values in (("skills", skills), ("experience", experience), ("education", education), ("certifications", certifications))
+            if not values
+        ],
+        "review_required": True,
+        "external_submission_performed": False,
+        "approval_required_before_submission": True,
+    }
