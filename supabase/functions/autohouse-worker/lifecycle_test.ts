@@ -1,4 +1,4 @@
-import { artifactMatchesExisting, expiredLeaseDisposition } from "./lifecycle.ts";
+import { artifactMatchesExisting, expiredLeaseDisposition, isFinishableState } from "./lifecycle.ts";
 
 function assertEquals<T>(actual: T, expected: T, message: string): void {
   if (actual !== expected) throw new Error(`${message}: expected ${String(expected)}, got ${String(actual)}`);
@@ -28,4 +28,11 @@ Deno.test("artifact binding rejects digest reuse across jobs or revisions", () =
   assertEquals(artifactMatchesExisting({ ...expected, job_id: "job-b" }, expected), false, "wrong job");
   assertEquals(artifactMatchesExisting({ ...expected, revision_digest: "sha256:other" }, expected), false, "wrong revision");
   assertEquals(artifactMatchesExisting({ ...expected, owner_id: "owner-b" }, expected), false, "wrong owner");
+});
+
+Deno.test("only RUNNING jobs may be completed by a worker", () => {
+  assertEquals(isFinishableState("RUNNING"), true, "RUNNING may finish");
+  assertEquals(isFinishableState("LEASED"), false, "LEASED cannot finish");
+  assertEquals(isFinishableState("RETRYABLE_FAILURE"), false, "reconciliation-required jobs cannot finish");
+  assertEquals(isFinishableState("CANCELLED"), false, "cancelled jobs cannot finish");
 });
