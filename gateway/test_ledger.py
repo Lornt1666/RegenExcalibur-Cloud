@@ -1,3 +1,4 @@
+import json
 import os
 import tempfile
 import unittest
@@ -56,7 +57,7 @@ class GatewayLedgerTests(unittest.TestCase):
         self.assertEqual(first["state"], "CANCELLED")
         stored = self.ledger.get_task("task-001", "user-1")
         self.assertEqual(stored["state"], "CANCELLED")
-        self.assertEqual(__import__("json").loads(stored["contract_json"])["state"], "CANCELLED")
+        self.assertEqual(json.loads(stored["contract_json"])["state"], "CANCELLED")
         replay = self.ledger.cancel_task("task-001", "user-1")
         self.assertTrue(replay["already_cancelled"])
         outcomes = [e["outcome"] for e in self.ledger.audit_events("user-1", "task-001")]
