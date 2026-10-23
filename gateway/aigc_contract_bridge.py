@@ -43,6 +43,8 @@ def validate_aigc_runtime_contract(
         raise AIGCContractError("AIGC resource budget exceeds server-side policy")
     if type(contract["retry_max"]) is not int or not 0 <= contract["retry_max"] <= 5:
         raise AIGCContractError("AIGC retry_max must be between 0 and 5")
+    if contract["retry_max"] > 0 and "idempotent" not in contract["authorized_scope"].lower():
+        raise AIGCContractError("retry authorization must explicitly declare idempotency")
     if type(contract["rollback_enabled"]) is not bool:
         raise AIGCContractError("rollback_enabled must be boolean")
     if not isinstance(contract["rollback_compensating_action"], str):
