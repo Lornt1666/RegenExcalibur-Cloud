@@ -140,6 +140,9 @@ class GatewayHTTPAPITests(unittest.TestCase):
         self.assertEqual(status, "404 Not Found")
         self.assertEqual(body["error"], "task_not_found")
         self.assertEqual(self.ledger.get_task("task-001", "user-1")["state"], "AUTHORIZED")
+        denial = self.ledger.audit_events("user-2")[-1]
+        self.assertEqual(denial["action"], "TASK_CANCEL")
+        self.assertEqual(denial["outcome"], "DENIED_NOT_FOUND_OR_NOT_OWNED")
 
     def test_cancellation_rejects_non_cancellable_terminal_state(self):
         invoke(self.app, "POST", "/v1/tasks", sample())
