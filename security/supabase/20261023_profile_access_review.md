@@ -26,7 +26,7 @@ Those row policies do not restrict which columns an authenticated user may set. 
 
 ### SEC-GRANT-003 — Excess table privileges
 
-Live catalog grants for `authenticated` include `TRUNCATE`, `TRIGGER`, and `REFERENCES` on `public.profiles`, `public.autohouse_jobs`, `public.autohouse_artifacts`, and `public.autohouse_events`. Row-level security does not filter TRUNCATE. These privileges are not normally needed for application-level row CRUD and should be removed unless a documented requirement proves otherwise.
+Live catalog grants for `authenticated` include `MAINTAIN`, `TRUNCATE`, `TRIGGER`, and `REFERENCES` on `public.profiles`, `public.autohouse_jobs`, `public.autohouse_artifacts`, and `public.autohouse_events`. Row-level security does not filter TRUNCATE. These privileges are not normally needed for application-level row CRUD and should be removed unless a documented requirement proves otherwise.
 
 ### SEC-FUNCTION-004 — SECURITY DEFINER execution inventory required
 
@@ -45,7 +45,7 @@ The adjacent SQL file is a **review proposal only**, not a production migration 
 - Removes anonymous table access to `profiles`.
 - Replaces the permissive SELECT policy with owner-only authenticated SELECT.
 - Removes table-level INSERT/UPDATE and grants only the profile fields that users should edit, excluding `role`, `email`, and `id` from user-controlled updates.
-- Removes unnecessary TRUNCATE/TRIGGER/REFERENCES privileges from the four reviewed tables.
+- Removes unnecessary MAINTAIN/TRUNCATE/TRIGGER/REFERENCES privileges from the four reviewed tables.
 - Removes direct EXECUTE grants on the trigger function `handle_new_user()`.
 
 Before applying, inspect client code for legitimate profile-directory behavior and profile writes. If a public directory is needed, expose a **separate sanitized view** containing only approved public fields, with explicit grants and row/column behavior. Do not restore public access to the base table.
