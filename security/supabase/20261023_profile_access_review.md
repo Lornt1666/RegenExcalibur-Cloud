@@ -63,7 +63,7 @@ Before applying, inspect client code for legitimate profile-directory behavior a
 
 ## Evidence captured
 
-- Security advisor observed at `2026-10-23T20:36:04Z`: one anon GraphQL exposure finding for `public.profiles`; 102 authenticated GraphQL exposure findings, including `public.autohouse_artifacts`.
+- Security advisor refreshed read-only at `2026-10-23T20:59:21Z`: one anon GraphQL exposure finding for `public.profiles`; 102 authenticated GraphQL exposure findings; five `SECURITY DEFINER` functions executable by `anon`; 93 `SECURITY DEFINER` functions executable by `authenticated`. Examples were inspected, but the complete 98-function inventory still requires per-function review before any blanket privilege changes. The advisor counts are warnings about discoverability/execution grants, not proof that each object is exploitable.
 - RLS state: enabled for `profiles`, `autohouse_jobs`, `autohouse_artifacts`, and `autohouse_events`.
 - Policies: `profiles_select_all USING (true)`; owner-scoped policies on jobs, artifacts and events using `owner_id = auth.uid()`; owner-scoped insert/update/delete policies on profiles.
 - Grants: anon has broad table privileges on profiles; authenticated has broad table privileges on the four reviewed tables, including TRUNCATE.
