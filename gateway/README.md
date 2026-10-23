@@ -14,8 +14,10 @@ The contract is intended to bind a gateway request to an existing AIGC TaskContr
 - `job_agent.py`: deterministic listing normalization, deduplication, and evidence-bound skills/eligibility assessment.
 - `cloud_shell_handoff.py`: typed read-only diagnostic handoff and receipt parser; no Cloud Shell API call or command execution.
 - `antigravity_handoff.py`: workspace-bound user-assisted task handoff; no desktop, SDK, CLI, or managed-agent invocation.
+- `aigc_contract_bridge.py`: defense-in-depth validation of the existing AIGC runtime v0.18 contract shape and a server-supplied operation allowlist; the authoritative AIGC validator remains upstream.
 - `test_job_agent.py`: regression tests for URL hygiene, missing qualifications, unknown eligibility facts, and deduplication.
 - `test_cloud_shell_handoff.py` and `test_antigravity_handoff.py`: regression tests for typed allowlists, explicit scope, and honest user-assisted status.
+- `test_aigc_contract_bridge.py`: regression tests for contract reference binding, expiry, resource budget, and allowed actions.
 
 ## Critical integration requirements
 
@@ -47,7 +49,7 @@ The contract is intended to bind a gateway request to an existing AIGC TaskContr
 | Mobile gateway / ChatGPT connector | Not implemented | No authenticated API/UI in this branch |
 | Cloud Shell handoff | Implemented, CI pending | Typed read-only command list and user-supplied receipt verifier; no Cloud Shell execution has been performed by this code |
 | Antigravity handoff | Implemented, CI pending | Workspace-bound handoff package; no automated desktop/SDK/managed-agent call has been made |
-| AIGC integration | Not implemented | Contract reference exists; runtime validator/dispatcher integration remains |
+| AIGC contract bridge | Partial, CI pending | Defense-in-depth shape/allowlist check; no live AIGC validator call or dispatch |
 | Production deployment | Not authorized or performed | Draft PR only |
 
 ## Official integration research
