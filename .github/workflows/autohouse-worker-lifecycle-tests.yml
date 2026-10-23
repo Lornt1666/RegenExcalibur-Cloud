@@ -28,6 +28,6 @@ jobs:
         with:
           deno-version: v2.x
       - name: Type-check the tracked worker source
-        run: deno check --no-prompt supabase/functions/autohouse-worker/index.ts
+        run: deno check supabase/functions/autohouse-worker/index.ts
       - name: Run isolated lifecycle tests
-        run: deno test --no-prompt --deny-net --deny-env --deny-write supabase/functions/autohouse-worker/lifecycle_test.ts
+        run: deno test --deny-net --deny-env --deny-write supabase/functions/autohouse-worker/lifecycle_test.ts
