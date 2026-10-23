@@ -72,3 +72,17 @@ Before applying, inspect client code for legitimate profile-directory behavior a
 ## Disposition
 
 **BLOCKED pending explicit production-change authorization and application compatibility review.** The recommended next step is to review the proposal, add integration tests in a safe branch/staging project, and then request approval for a controlled production migration.
+
+## Follow-up read-only refresh (2026-10-23 21:04 UTC)
+
+The Supabase security advisor was queried again. It still reports:
+- 1 anonymous GraphQL table exposure: `public.profiles`.
+- 102 authenticated-role GraphQL table exposure findings.
+- 5 `SECURITY DEFINER` functions executable by `anon`.
+- 93 `SECURITY DEFINER` functions executable by `authenticated`.
+
+A separate read-only `information_schema.role_table_grants` query confirmed that `anon` currently has DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE and UPDATE grants on `public.profiles`. `authenticated` has DELETE, INSERT, REFERENCES, SELECT, TRIGGER, TRUNCATE and UPDATE grants on `public.profiles`, `public.autohouse_jobs`, `public.autohouse_artifacts`, and `public.autohouse_events`. This reinforces that the proposal should be evaluated against all actual grants, not merely the advisor's SELECT/GraphQL exposure warning.
+
+The advisor observations are timestamped `2026-10-23T21:04:36.303Z`. These findings remain risk indicators, not proof that an exploit was performed. No row data was retrieved, no access attempt was made, and no live grant, policy, function, schema or data was modified.
+
+**Disposition remains unchanged:** proposal only; validate the application and signup path in a non-production environment, audit all 98 SECURITY DEFINER function grants individually, and obtain explicit approval before any production change.
