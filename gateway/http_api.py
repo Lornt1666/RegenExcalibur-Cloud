@@ -60,16 +60,16 @@ class GovernedGatewayWSGI:
             raise AuthenticationError("authenticator returned no trusted subject")
         return identity
 
-    def _audit_denial(self, actor: str, reason: str, task_id: str | None = None) -> bool:
+    def _audit_denial(self, actor: str, reason: str, task_id: str | None = None, action: str = "TASK_INTAKE") -> bool:
         try:
-            self.ledger.record_denial(actor=actor, action="TASK_INTAKE", reason_code=reason, task_id=task_id)
+            self.ledger.record_denial(actor=actor, action=action, reason_code=reason, task_id=task_id)
             return True
         except Exception:
             return False
 
     def _deny(self, start_response, actor: str, reason: str, status: str,
-              payload: Mapping[str, Any], task_id: str | None = None):
-        if not self._audit_denial(actor, reason, task_id):
+              payload: Mapping[str, Any], task_id: str | None = None, action: str = "TASK_INTAKE"):
+        if not self._audit_denial(actor, reason, task_id, action):
             return self._response(start_response, "503 Service Unavailable",
                                   {"error": "audit_unavailable", "dispatch_performed": False})
         return self._response(start_response, status, payload)
@@ -128,7 +128,8 @@ class GovernedGatewayWSGI:
                 identity = self._identity(environ)
             except AuthenticationError:
                 return self._deny(start_response, "unauthenticated", "AUTHENTICATION_FAILED",
-                                  "401 Unauthorized", {"error": "authentication_required"})
+                                  "401 Unauthorized", {"error": "authentication_required"},
+                                  action="TASK_CANCEL")
             task_id = unquote(match.group(1))
             try:
                 result = self.ledger.cancel_task(task_id, identity["subject"])
