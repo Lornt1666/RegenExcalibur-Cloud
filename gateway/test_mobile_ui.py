@@ -15,16 +15,19 @@ class MobileGatewayUITests(unittest.TestCase):
         self.assertIn('aria-live="polite"', self.html)
         self.assertIn('@media(min-width:620px)', self.css)
 
-    def test_strict_csp_and_no_browser_storage_for_tokens(self):
+    def test_strict_csp_same_origin_and_no_browser_storage(self):
         self.assertIn("script-src 'self'", self.html)
         self.assertIn("style-src 'self'", self.html)
         csp = self.html.split("Content-Security-Policy", 1)[1].split(">", 1)[0]
         self.assertNotIn("unsafe-inline", csp)
+        self.assertIn("connect-src 'self'", csp)
         self.assertNotIn("localStorage", self.html + self.js)
         self.assertNotIn("sessionStorage", self.html + self.js)
         self.assertIn('credentials:"omit"', self.js)
         self.assertIn('cache:"no-store"', self.js)
         self.assertIn('rel="stylesheet" href="style.css"', self.html)
+        self.assertIn("return window.location.origin", self.js)
+        self.assertNotIn("apiBase", self.html + self.js)
 
     def test_user_controlled_values_are_rendered_as_text_not_html(self):
         self.assertIn("$(id).textContent", self.js)
