@@ -111,9 +111,9 @@ class GovernedGatewayWSGI:
                 stored = self.ledger.create_task(contract, subject)
             except IdempotencyConflict:
                 return self._response(start_response, "409 Conflict", {"error": "idempotency_conflict"})
-            except (ValueError, KeyError, TypeError):
+            except Exception:
                 return self._deny(start_response, subject, "PERSISTENCE_REJECTED",
-                                  "400 Bad Request", {"error": "task_not_accepted"},
+                                  "503 Service Unavailable", {"error": "task_not_accepted", "dispatch_performed": False},
                                   contract.get("task_id") if isinstance(contract.get("task_id"), str) else None)
             return self._response(start_response, "200 OK" if stored["replayed"] else "201 Created", {
                 "task_id": stored["task_id"],
