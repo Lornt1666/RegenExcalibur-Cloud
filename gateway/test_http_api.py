@@ -34,9 +34,12 @@ class GatewayHTTPAPITests(unittest.TestCase):
         self.ledger = GatewayLedger(os.path.join(self.tmp.name, "gateway.sqlite3"))
 
         def authenticate(environ):
-            if environ.get("HTTP_AUTHORIZATION") != "Bearer valid":
-                raise AuthenticationError("bad token")
-            return {"subject": "user-1", "repositories": ["Lornt1666/AIGC"], "projects": [], "can_approve": True}
+            token = environ.get("HTTP_AUTHORIZATION")
+            if token == "Bearer valid":
+                return {"subject": "user-1", "repositories": ["Lornt1666/AIGC"], "projects": [], "can_approve": True}
+            if token == "Bearer user2":
+                return {"subject": "user-2", "repositories": ["Lornt1666/AIGC"], "projects": [], "can_approve": True}
+            raise AuthenticationError("bad token")
 
         self.app = GovernedGatewayWSGI(self.ledger, authenticate)
 
@@ -95,9 +98,12 @@ class GatewayHTTPAPITests(unittest.TestCase):
         self.assertEqual(status, "200 OK")
         self.assertEqual(body["task_id"], "task-001")
         self.assertFalse(body["dispatch_performed"])
-        status, _, body = invoke(self.app, "GET", "/v1/tasks/task-001/audit", auth="Bearer other")
-        self.assertEqual(status, "401 Unauthorized")
-        self.assertEqual(body["error"], "authentication_required")
+        status, _, body = invoke(self.app, "GET", "/v1/tasks/task-001", auth="Bearer user2")
+        self.assertEqual(status, "404 Not Found")
+        self.assertEqual(body["error"], "task_not_found")
+        status, _, body = invoke(self.app, "GET", "/v1/tasks/task-001/audit", auth="Bearer user2")
+        self.assertEqual(status, "404 Not Found")
+        self.assertEqual(body["error"], "task_not_found")
 
     def test_denial_fails_closed_if_audit_storage_is_unavailable(self):
         def fail_audit(**_kwargs):
