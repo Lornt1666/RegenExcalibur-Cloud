@@ -124,6 +124,16 @@ class GatewayHTTPAPITests(unittest.TestCase):
         self.assertTrue(replay["already_cancelled"])
         self.assertFalse(replay["cancelled"])
 
+    def test_cancellation_requires_authentication_and_audits_correct_action(self):
+        invoke(self.app, "POST", "/v1/tasks", sample())
+        status, _, body = invoke(self.app, "POST", "/v1/tasks/task-001/cancel", auth="Bearer invalid")
+        self.assertEqual(status, "401 Unauthorized")
+        self.assertEqual(body["error"], "authentication_required")
+        self.assertEqual(self.ledger.get_task("task-001", "user-1")["state"], "AUTHORIZED")
+        event = self.ledger.audit_events("unauthenticated")[-1]
+        self.assertEqual(event["action"], "TASK_CANCEL")
+        self.assertEqual(event["outcome"], "DENIED")
+
     def test_cancellation_is_owner_scoped_and_does_not_disclose_other_users_tasks(self):
         invoke(self.app, "POST", "/v1/tasks", sample())
         status, _, body = invoke(self.app, "POST", "/v1/tasks/task-001/cancel", auth="Bearer user2")
