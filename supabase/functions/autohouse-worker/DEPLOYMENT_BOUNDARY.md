@@ -44,7 +44,7 @@ This schema evidence removes the specific concern that `RETRYABLE_FAILURE` is in
 
 ## Latest artifact-conflict remediation and exact-head CI (2026-10-23)
 
-- Candidate head: `bb70cd610e8d35540de4950819d64aeac80b23f2`.
-- [Exact-head CI run 40024252106](https://github.com/Lornt1666/RegenExcalibur-Cloud/actions/runs/40024252106) checked out this SHA; Deno type-check passed and all 10 isolated lifecycle tests passed.
+- Candidate head: `bb140763469d63aacee38ccf4e857e85793a207d`.
+- [Exact-head CI run 40024417090](https://github.com/Lornt1666/RegenExcalibur-Cloud/actions/runs/40024417090) checked out this SHA; Deno type-check passed and all 10 isolated lifecycle tests passed.
 - The latest source catches an artifact insert error, re-reads by `owner_id + artifact_digest`, and accepts the result only when `owner_id`, `job_id`, `revision_digest`, and `artifact_digest` match the expected binding. If the lookup fails, no exact row exists, or any binding differs, completion fails closed and the job remains nonterminal.
 - This is still source-level logic plus isolated lifecycle tests. It does not prove the concurrent insert race against a real PostgreSQL instance, independent hashing of artifact content, or deployment behavior.
