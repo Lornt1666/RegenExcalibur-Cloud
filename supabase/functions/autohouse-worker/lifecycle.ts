@@ -1,5 +1,12 @@
 export type JobState = "QUEUED" | "LEASED" | "RUNNING" | "SUCCEEDED" | "RETRYABLE_FAILURE" | "FAILED" | "CANCELLED";
 
+export function workerLeaseIdentity(runId: string, runAttempt: string): string {
+  if (!/^\d+$/.test(runId) || !/^\d+$/.test(runAttempt)) {
+    throw new Error("GitHub run ID and run attempt must be numeric strings");
+  }
+  return `${runId}:${runAttempt}`;
+}
+
 export function isFinishableState(state: JobState): boolean {
   return state === "RUNNING";
 }
