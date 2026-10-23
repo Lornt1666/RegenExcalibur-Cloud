@@ -46,5 +46,14 @@ class JobAgentTests(unittest.TestCase):
         self.assertEqual([x["value"] for x in result], ["new", "other"])
 
 
+
+    def test_rejects_timezone_free_retrieval_timestamp(self):
+        with self.assertRaisesRegex(JobDataError, "must include a timezone"):
+            normalize_listing({"employer": "Example", "title": "Role", "source_url": "https://jobs.example/1"}, "2026-10-23T12:00:00")
+
+    def test_rejects_malformed_remote_eligibility_without_crashing(self):
+        with self.assertRaisesRegex(JobDataError, "remote_eligibility is invalid"):
+            normalize_listing({"employer": "Example", "title": "Role", "source_url": "https://jobs.example/1", "remote_eligibility": ["remote"]}, "2026-10-23T12:00:00Z")
+
 if __name__ == "__main__":
     unittest.main()
