@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' https:; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'self'">
+  <title>1JGM Governed Gateway</title>
+  <style>
+    :root{color-scheme:light dark;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.45}
+    *{box-sizing:border-box}body{margin:0;background:Canvas;color:CanvasText}
+    main{width:min(100% - 28px,820px);margin:0 auto;padding:24px 0 max(28px,env(safe-area-inset-bottom))}
+    h1{font-size:1.55rem;margin:.2rem 0}.intro,.note{color:GrayText}
+    section{border:1px solid color-mix(in srgb,CanvasText 22%,transparent);border-radius:14px;padding:16px;margin:16px 0}
+    label{display:block;font-weight:650;margin:12px 0 6px}
+    input,textarea,button{font:inherit;width:100%;border-radius:9px;padding:12px}
+    input,textarea{border:1px solid color-mix(in srgb,CanvasText 35%,transparent);background:Canvas;color:CanvasText}
+    textarea{min-height:230px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:.86rem;resize:vertical}
+    button{border:0;background:ButtonText;color:ButtonFace;font-weight:700;margin-top:12px;min-height:46px}
+    button.secondary{background:transparent;color:CanvasText;border:1px solid color-mix(in srgb,CanvasText 35%,transparent)}
+    button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid Highlight;outline-offset:2px}
+    pre{white-space:pre-wrap;overflow-wrap:anywhere;padding:12px;border-radius:9px;background:color-mix(in srgb,CanvasText 7%,Canvas);min-height:42px}
+    .row{display:grid;grid-template-columns:1fr;gap:8px}.status{font-weight:700}
+    @media(min-width:620px){.row{grid-template-columns:1fr 1fr}main{padding-top:36px}}
+  </style>
+</head>
+<body>
+<main>
+  <h1>1JGM Governed Gateway</h1>
+  <p class="intro">Review and submit a versioned task contract, then inspect its stored status and audit events. This interface never executes provider operations.</p>
+  <section aria-labelledby="connection-heading">
+    <h2 id="connection-heading">Connection</h2>
+    <p class="note">Use only with a trusted HTTPS deployment. The bearer token remains in this page's memory and is not saved to browser storage. A production deployment should obtain tokens from its approved identity provider rather than asking users to paste credentials.</p>
+    <label for="apiBase">Gateway origin / base URL</label>
+    <input id="apiBase" type="url" autocomplete="url" spellcheck="false" placeholder="https://gateway.example">
+    <label for="token">Access token (development/testing only)</label>
+    <input id="token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Bearer token">
+  </section>
+  <section aria-labelledby="submit-heading">
+    <h2 id="submit-heading">Review task contract</h2>
+    <p class="note">Confirm the target, operation, scope, expiry and acceptance criteria before submitting. New tasks must enter as REQUESTED. Server policy determines authorization; the client cannot authorize itself.</p>
+    <label for="contract">Task contract JSON</label>
+    <textarea id="contract" autocapitalize="off" spellcheck="false" aria-describedby="contract-help"></textarea>
+    <p id="contract-help" class="note">Submission persists a task request only. No repository, Cloud Shell, Antigravity or job-site action is dispatched.</p>
+    <button id="submit">Validate and submit request</button>
+    <p id="status" class="status" role="status" aria-live="polite">Not connected.</p>
+    <pre id="result" aria-label="Operation result">No request submitted.</pre>
+  </section>
+  <section aria-labelledby="lookup-heading">
+    <h2 id="lookup-heading">Task record and audit</h2>
+    <label for="taskId">Task ID</label>
+    <input id="taskId" type="text" autocomplete="off" spellcheck="false" placeholder="task-…">
+    <div class="row">
+      <button id="getTask" class="secondary">Retrieve task</button>
+      <button id="getAudit" class="secondary">Retrieve audit events</button>
+    </div>
+    <pre id="record" aria-label="Task record">No task retrieved.</pre>
+  </section>
+  <p class="note">Prototype boundary: this page does not supply an identity provider, approval UI, cancellation endpoint, live executor, or production persistence. Keep the API and this page on the same origin behind an approved HTTPS reverse proxy until a reviewed CORS and identity design exists.</p>
+</main>
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const show = (id, value) => { $(id).textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2); };
+function baseUrl() {
+  const raw = $("apiBase").value.trim() || window.location.origin;
+  const url = new URL(raw, window.location.origin);
+  if (url.protocol !== "https:" && url.hostname !== "localhost" && url.hostname !== "127.0.0.1") throw new Error("HTTPS is required except for local development.");
+  if (url.username || url.password || url.search || url.hash) throw new Error("Base URL must not contain credentials, query parameters or a fragment.");
+  return url.toString().replace(/\/$/, "");
+}
+async function request(path, options = {}) {
+  const token = $("token").value;
+  if (!token) throw new Error("Provide a development/testing access token or connect an approved identity provider.");
+  const url = baseUrl() + path;
+  const response = await fetch(url, { ...options, headers: { "Accept":"application/json", "Authorization":"Bearer " + token, ...(options.body ? {"Content-Type":"application/json"} : {}), ...options.headers }, cache:"no-store", credentials:"omit", redirect:"error", referrerPolicy:"no-referrer" });
+  const body = await response.json().catch(() => ({error:"non_json_response"}));
+  if (!response.ok) throw new Error("HTTP " + response.status + ": " + JSON.stringify(body));
+  return body;
+}
+$("submit").addEventListener("click", async () => {
+  $("submit").disabled = true; show("status","Submitting…");
+  try {
+    const contract = JSON.parse($("contract").value);
+    if (!contract || typeof contract !== "object" || Array.isArray(contract)) throw new Error("Contract must be a JSON object.");
+    if (contract.state !== "REQUESTED") throw new Error("New requests must have state REQUESTED.");
+    const result = await request("/v1/tasks", {method:"POST", body:JSON.stringify(contract)});
+    show("result", result); show("status", "Request recorded; dispatch performed: " + String(result.dispatch_performed));
+    if (result.task_id) $("taskId").value = result.task_id;
+  } catch (error) { show("status","Request not confirmed."); show("result",String(error.message || error)); }
+  finally { $("submit").disabled = false; }
+});
+async function lookup(suffix) {
+  const id = $("taskId").value.trim();
+  if (!id || id.includes("/") || id.includes("\\") || id === "." || id === "..") { show("record","Enter a valid task ID."); return; }
+  try { show("record", await request("/v1/tasks/" + encodeURIComponent(id) + suffix)); }
+  catch (error) { show("record",String(error.message || error)); }
+}
+$("getTask").addEventListener("click", () => lookup(""));
+$("getAudit").addEventListener("click", () => lookup("/audit"));
+$("apiBase").value = window.location.origin === "null" ? "" : window.location.origin;
+$("contract").value = JSON.stringify({
+  contract_version:"1JGM-GATEWAY-TASK-1.0", task_id:"task-replace-me", idempotency_key:"idem-replace-me",
+  initiated_by:"replace-with-authenticated-subject", session_ref:"session-reference", aigc_contract_ref:"existing-aigc-contract-reference",
+  target:{kind:"repository",repository:"Lornt1666/AIGC",branch:"main"}, operation:"repo.read_file",
+  arguments:{path:"README.md"}, resource_scope:["repository:read"], risk_level:"low", approval_id:null,
+  expires_at:new Date(Date.now()+10*60*1000).toISOString(), execution:{timeout_seconds:30,max_output_bytes:10000},
+  expected_outputs:["file content"], acceptance_criteria:["result returned with evidence"], state:"REQUESTED", audit_correlation_id:"audit-replace-me"
+},null,2);
+</script>
+</body>
+</html>
