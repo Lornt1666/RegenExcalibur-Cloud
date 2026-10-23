@@ -17,15 +17,19 @@ Use only: `NOT_STARTED`, `BLOCKED`, `PROVISIONED`, `INTEGRATED`, `E2E_VERIFIED`.
 
 | Capability | Status | Provider role / evidence | Minimum unblock / acceptance |
 |---|---|---|---|
-| PostgreSQL | BLOCKED | PostgreSQL is Neon’s core service, but target project/branch not authenticated or verified | Connect a scoped Neon API key or authorized Neon management connector; verify org/project/branch IDs and database endpoint; run a non-mutating connectivity and identity query |
-| Authentication | BLOCKED | Neon Auth supports branch-level integration with providers including Better Auth; not confirmed enabled on this branch | Verify target and existing auth provider; integration only after approved design; test sign-in, session expiry, tenant/row isolation and token rejection |
-| AI Gateway | BLOCKED | Neon exposes a branch-level AI Gateway endpoint API; project/branch availability is not verified | Resolve target branch ID, query AI Gateway status, verify provider and credentials without exposing them, run one approved bounded test |
-| Object Storage | BLOCKED | Neon documents branchable object storage and S3-compatible access; availability is branch-specific | Query branch storage state, confirm bucket/credential model and data retention, then test least-privilege write/read/delete only in a disposable approved test bucket |
-| Functions | BLOCKED | Neon exposes branch-level Functions APIs; function listing/deployment endpoints are documented as Beta | Verify target and runtime availability; deploy only to a non-production branch with explicit approval; test auth, bounded execution, logs and rollback |
-| Realtime | BLOCKED | Neon exposes branch-level Realtime enablement; provisioning is asynchronous and origin allowlists matter | Verify support and branch state, set exact approved origins (never wildcard by default), wait for ready state, test authorized and unauthorized subscriptions |
+| PostgreSQL | BLOCKED | Native Neon Postgres/Lakebase is documented as the core data service; target project/branch not authenticated or verified | Connect a scoped Neon API key or authorized Neon management connector; verify org/project/branch IDs and database endpoint; run a non-mutating connectivity and identity query |
+| Authentication | BLOCKED | Neon Managed Better Auth is documented as generally available and branch-scoped; not confirmed enabled on this target branch | Verify target and existing auth provider; integration only after approved design; test sign-in, session expiry, tenant/row isolation and token rejection |
+| AI Gateway | BLOCKED | Neon AI Gateway is documented as generally available and branch-scoped; project/branch availability is not verified | Resolve target branch ID, query AI Gateway status, verify provider and credentials without exposing them, run one approved bounded test |
+| Object Storage | BLOCKED | Neon Object Storage is documented as generally available, S3-compatible and branch-aware; bucket state on this branch is not verified | Query branch storage state, confirm bucket/credential model and data retention, then test least-privilege write/read/delete only in a disposable approved test bucket |
+| Functions | BLOCKED | Neon Functions are documented as generally available (Node.js 24 branch-scoped runtime); no function on this branch is verified | Verify target and runtime availability; deploy only to a non-production branch with explicit approval; test auth, bounded execution, logs and rollback |
+| Realtime | BLOCKED | Neon Realtime was announced as public beta on 2026-10-15; branch enablement and origin policy are unverified | Verify support and branch state, set exact approved origins (never wildcard by default), wait for ready state, test authorized and unauthorized subscriptions |
 
 ## Official provider documentation
 
+- [Neon backend GA announcement (2026-09)](https://neon.com/blog/neon-backend-is-ga)
+- [Neon backend reliability / product status (2026-09-30)](https://neon.com/blog/how-we-systematically-improved-our-reliability)
+- [Neon Realtime public beta announcement (2026-10-15)](https://neon.com/blog/neon-now-has-realtime)
+- [Neon Functions overview (2026-08)](https://neon.com/blog/neon-functions-backend-logic-next-to-your-data)
 - [Neon API authentication](https://api-docs.neon.tech/reference/authentication)
 - [Enable Neon Auth on a branch](https://api-docs.neon.tech/reference/createneonauth)
 - [Get branch AI Gateway endpoint](https://api-docs.neon.tech/reference/getprojectbranchaigateway)
