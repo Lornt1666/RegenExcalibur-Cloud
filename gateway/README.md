@@ -19,9 +19,11 @@ The contract is intended to bind a gateway request to an existing AIGC TaskContr
 - `cloud_shell_handoff.py`: typed read-only diagnostic handoff and receipt parser; no Cloud Shell API call or command execution.
 - `antigravity_handoff.py`: workspace-bound user-assisted task handoff; no desktop, SDK, CLI, or managed-agent invocation.
 - `aigc_contract_bridge.py`: defense-in-depth validation of the existing AIGC runtime v0.18 contract shape and a server-supplied operation allowlist; the authoritative AIGC validator remains upstream.
+- `ledger.py`: SQLite intake/audit ledger with identity-scoped idempotency and owner-scoped reads. It is a single-node development/test primitive, not a production multi-instance database.
 - `test_job_agent.py`: regression tests for URL hygiene, missing qualifications, unknown eligibility facts, deduplication, and non-fabricated application drafts.
 - `test_cloud_shell_handoff.py` and `test_antigravity_handoff.py`: regression tests for typed allowlists, explicit scope, and honest user-assisted status.
 - `test_aigc_contract_bridge.py`: regression tests for contract reference binding, expiry, resource budget, and allowed actions.
+- `test_ledger.py`: regression tests for atomic intake/audit, idempotent replay, conflict denial, durable denial records, and owner-scoped reads.
 
 ## Critical integration requirements
 
@@ -29,7 +31,7 @@ The contract is intended to bind a gateway request to an existing AIGC TaskContr
 2. Bind repository and project allowlists to verified identity claims and server-side configuration.
 3. Implement `approval_lookup` against a durable approval store. Bind approvals to task ID, immutable contract digest, approver identity, expiry, and the exact proposed external action.
 4. Persist idempotency keys with a uniqueness constraint and atomic task creation; the pure validator alone does not prevent replay.
-5. Persist durable audit events for both allowed and denied actions before any dispatch.
+5. Persist durable audit events for both allowed and denied actions before any dispatch. The included SQLite ledger is local-only; production requires an approved shared database and server-side identity binding.
 6. Keep policy evaluation separate from execution. The module intentionally does not execute commands or submit applications.
 7. Verify job listings from actual source retrieval. The assessment function only assesses supplied records; it does not discover or verify live vacancies.
 8. Keep job-profile data separate from infrastructure, repository-write, Cloud Shell, and Antigravity credentials.
